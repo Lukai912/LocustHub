@@ -1,0 +1,23 @@
+image:
+  repository: locusthub-api
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+
+env:
+  DATABASE_BACKEND: mysql
+  MYSQL_HOST: mysql
+  MYSQL_PORT: "3306"
+  MYSQL_USER: locusthub
+  MYSQL_PASSWORD: locusthub
+  MYSQL_DATABASE: locusthub
+  ARTIFACT_STORAGE_PROVIDER: aliyun_oss
+  ALIYUN_OSS_ENDPOINT: ""
+  ALIYUN_OSS_BUCKET: ""
+  ALIYUN_OSS_ACCESS_KEY_ID: ""
+  ALIYUN_OSS_ACCESS_KEY_SECRET: ""
+  ALIYUN_OSS_SIGNED_URL_EXPIRE_SECONDS: "900"
+  DEMO_TOKEN: dev-token

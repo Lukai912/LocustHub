@@ -8,3 +8,4 @@ data/
 artifacts/
 node_modules/
 dist/
+.env

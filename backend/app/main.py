@@ -5,10 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import create_router
 from app.core.config import get_settings
-from app.core.database import Database
+from app.core.database import Database, MySQLDatabase
+from app.repositories.mysql_repo import MySQLRepository
 from app.repositories.sqlite_repo import SQLiteRepository
 from app.services.admission import RunAdmissionController
-from app.services.artifacts import LocalArtifactRepository
+from app.services.artifacts import AliyunOssArtifactRepository, LocalArtifactRepository
 from app.services.lane import LaneController
 from app.services.metrics import LocustMetricsSimulator
 from app.services.reports import ReportArchiver
@@ -17,12 +18,31 @@ from app.services.runner import TestRunService
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    database = Database(settings.database_path)
-    repo = SQLiteRepository(database)
+    if settings.database_backend == "mysql":
+        database = MySQLDatabase(
+            host=settings.mysql_host,
+            port=settings.mysql_port,
+            user=settings.mysql_user,
+            password=settings.mysql_password,
+            database=settings.mysql_database,
+        )
+        repo = MySQLRepository(database)
+    else:
+        database = Database(settings.database_path)
+        repo = SQLiteRepository(database)
     repo.init_schema()
     repo.seed_demo(settings.demo_token)
 
-    artifacts = LocalArtifactRepository(settings.artifact_root)
+    if settings.artifact_storage_provider == "aliyun_oss":
+        artifacts = AliyunOssArtifactRepository(
+            endpoint=settings.aliyun_oss_endpoint,
+            bucket=settings.aliyun_oss_bucket,
+            access_key_id=settings.aliyun_oss_access_key_id,
+            access_key_secret=settings.aliyun_oss_access_key_secret,
+            signed_url_expire_seconds=settings.aliyun_oss_signed_url_expire_seconds,
+        )
+    else:
+        artifacts = LocalArtifactRepository(settings.artifact_root)
     metrics = LocustMetricsSimulator()
     runner = TestRunService(
         repo=repo,

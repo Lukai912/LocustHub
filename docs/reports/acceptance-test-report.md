@@ -134,4 +134,45 @@ LocustHub MVP 本地调试版本通过当前自动化验收。用户可以在本
 - 本地 MVP 使用 manifest 模拟 Kubernetes 资源创建。
 - 本地 MVP 使用模拟指标替代真实 Locust master 采集。
 
+## 9. 阶段 2 基础设施适配验收
+
+阶段 2 新增范围：
+
+- MySQL 8 schema：`backend/app/db/mysql_schema.sql`
+- MySQL migration 脚本：`scripts/migrate_mysql.py`
+- MySQL 运行时连接适配：`MySQLDatabase`、`MySQLRepository`
+- 阿里云 OSS ArtifactRepository：`AliyunOssArtifactRepository`
+- 配置模板：`.env.example`
+- API Dockerfile：`backend/Dockerfile`
+- 本地部署：`docker-compose.yml`
+- Helm 基础包：`deploy/helm/locusthub`
+- 阶段 2 文档：`docs/stage2-infrastructure.md`
+
+阶段 2 自动化测试覆盖：
+
+- 环境变量可切换 MySQL 和 OSS provider
+- MySQL schema 包含核心表
+- Local ArtifactRepository 仍可用
+- Aliyun OSS provider 会校验必需配置
+
+阶段 2 测试结果：
+
+```text
+./scripts/test_local.sh -> 7 passed in 0.39s
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py -> passed
+```
+
+阶段 2 部署配置验证：
+
+```text
+docker compose config -> not executed, docker is not installed in the current environment
+helm template locusthub deploy/helm/locusthub -> not executed, helm is not installed in the current environment
+```
+
+阶段 2 保留边界：
+
+- 默认本地模式仍使用 SQLite 和本地文件归档，便于开发。
+- MySQL 和阿里云 OSS 已具备配置、schema 和运行时适配。
+- 真实 Kubernetes Locust 泳道和真实 Locust 指标采集进入阶段 3。
+
 这些限制不影响业务闭环验收，生产适配器在后续 OpenSpec change 中实现。
