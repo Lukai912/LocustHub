@@ -1019,3 +1019,18 @@ views/load-test/run-detail/
 - 任务结束后运行资源被销毁。
 - 任务结束后操作记录、指标、日志、报告可查询。
 - CI 可以通过 API 创建基线压测任务，并获取最终判定结果。
+
+## 19. Superpowers + OpenSpec 协同开发
+
+LocustHub 使用 Superpowers + OpenSpec 进行协同开发：
+
+- Superpowers 定义产品、架构、后端、前端、DevOps、QA 等协作角色和职责边界。
+- OpenSpec 定义规格驱动的变更流程，重要功能先写 proposal、tasks 和必要的 design，再进入实现。
+- 已接受的能力规格保存在 `openspec/specs`。
+- 待实现或待评审的变更保存在 `openspec/changes`。
+
+详细规范见：
+
+- `docs/superpowers-openspec-collaboration.md`
+- `openspec/project.md`
+- `openspec/specs/loadtest-paas/spec.md`
