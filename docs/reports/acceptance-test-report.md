@@ -92,11 +92,42 @@ GET /health -> 200 OK, {"status":"ok","app":"LocustHub"}
 GET /api/v1/test-plans -> 200 OK, returns JSONPlaceholder Demo Plan
 ```
 
-## 6. 验收结论
+## 6. 远端 PR 交付记录
+
+MVP 汇总 PR：
+
+- PR #1: https://github.com/Lukai912/LocustHub/pull/1
+
+模块交付 PR：
+
+| 模块 | PR |
+| --- | --- |
+| M01 租户与权限模块 | https://github.com/Lukai912/LocustHub/pull/2 |
+| M02 项目与脚本模块 | https://github.com/Lukai912/LocustHub/pull/3 |
+| M03 压测计划模块 | https://github.com/Lukai912/LocustHub/pull/4 |
+| M04 压测任务模块 | https://github.com/Lukai912/LocustHub/pull/5 |
+| M05 准入审批与配额模块 | https://github.com/Lukai912/LocustHub/pull/6 |
+| M06 临时压测泳道模块 | https://github.com/Lukai912/LocustHub/pull/7 |
+| M07 Locust 实时指标模块 | https://github.com/Lukai912/LocustHub/pull/8 |
+| M08 报告归档与对象存储模块 | https://github.com/Lukai912/LocustHub/pull/9 |
+| M09 管理后台模块 | https://github.com/Lukai912/LocustHub/pull/10 |
+| M10 CI 性能基线模块 | https://github.com/Lukai912/LocustHub/pull/11 |
+| M11 运维部署模块 | https://github.com/Lukai912/LocustHub/pull/12 |
+| M12 审计与观测模块 | https://github.com/Lukai912/LocustHub/pull/13 |
+
+以上 PR 均已合并到远端 `main`。其中 PR #2 到 PR #13 是 MVP bootstrap 阶段的模块交付追踪 PR，用于补齐远端模块记录；这些 PR 不代表后续模块增强的交付方式。
+
+后续规则：
+
+- 模块增强 PR 必须包含真实内容变更。
+- 不再使用空提交 PR 做模块交付追踪。
+- 每个真实模块 PR 需要在描述中标明模块编号、变更内容和验证方式。
+
+## 7. 验收结论
 
 LocustHub MVP 本地调试版本通过当前自动化验收。用户可以在本地启动 FastAPI 服务，并通过本地管理页面完成 Demo 压测任务创建、启动、实时指标查看、停止归档等主流程。
 
-## 7. MVP 限制
+## 8. MVP 限制
 
 - 本地 MVP 使用 SQLite 模拟 MySQL。
 - 本地 MVP 使用本地文件系统模拟阿里云 OSS。

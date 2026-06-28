@@ -249,11 +249,14 @@ The system MUST create an isolated Locust lane for each running TestRun.
 - 与 Locust UI 对齐的字段不能随意改名，存储层可做映射。
 - 文件归档只能依赖 `ArtifactRepository` 抽象。
 - 指标存储只能依赖 `MetricsRepository` 抽象。
+- 从 MVP bootstrap 之后，模块增强 PR 必须包含真实内容变更，例如代码、测试、文档、配置或 migration。
+- 不再使用空提交 PR 作为模块交付追踪；如果只是记录状态，应更新交付报告或 OpenSpec 文档。
 
 ## 7. PR 检查清单
 
 ```text
 - 是否有关联 OpenSpec change？
+- 是否包含该模块的真实文件变更？
 - 是否更新了 docs 或 openspec？
 - 是否包含测试或验证说明？
 - 是否影响数据库 migration？
