@@ -1,0 +1,1 @@
+"""LocustHub backend package."""
