@@ -50,6 +50,8 @@ class MySQLConnection:
 
     def execute(self, sql: str, params: tuple | list | None = None) -> MySQLCursorResult:
         cursor = self.conn.cursor()
+        # Repositories use SQLite-style placeholders so the local and MySQL
+        # implementations can share most SQL call sites during the MVP phase.
         cursor.execute(self._translate(sql), params or ())
         return MySQLCursorResult(cursor)
 
@@ -67,6 +69,8 @@ class MySQLDatabase:
 
     @contextmanager
     def connect(self) -> Iterator[MySQLConnection]:
+        # Import lazily so local SQLite development does not require MySQL
+        # client libraries until DATABASE_BACKEND=mysql is actually selected.
         try:
             import pymysql
             from pymysql.cursors import DictCursor

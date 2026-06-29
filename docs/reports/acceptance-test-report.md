@@ -122,6 +122,9 @@ MVP 汇总 PR：
 - 模块增强 PR 必须包含真实内容变更。
 - 不再使用空提交 PR 做模块交付追踪。
 - 每个真实模块 PR 需要在描述中标明模块编号、变更内容和验证方式。
+- 每个真实模块 PR 必须使用 `.github/pull_request_template.md` 做自检。
+- 新增或修改的 API 必须接入 Swagger：`tags`、`summary`、必要的 docstring/description、请求字段说明。
+- 复杂运行时、存储、安全、治理逻辑必须补充维护性注释，说明设计意图和边界。
 
 ## 7. 验收结论
 
@@ -175,4 +178,44 @@ helm template locusthub deploy/helm/locusthub -> not executed, helm is not insta
 - MySQL 和阿里云 OSS 已具备配置、schema 和运行时适配。
 - 真实 Kubernetes Locust 泳道和真实 Locust 指标采集进入阶段 3。
 
-这些限制不影响业务闭环验收，生产适配器在后续 OpenSpec change 中实现。
+## 10. 阶段 3 Kubernetes + Locust 运行时验收
+
+阶段 3 新增范围：
+
+- Kubernetes manifest builder：`KubernetesManifestBuilder`
+- Kubernetes lane runtime：`KubernetesLaneRuntime`
+- 配置化 Kubernetes apply：`KUBERNETES_APPLY_ENABLED`
+- Locust master API client：`LocustMasterApiClient`
+- Locust API 指标转换：`LocustApiMetricsCollector`
+- Locust 原生报告抓取：`LocustReportFetcher`
+- Helm ServiceAccount/RBAC：`deploy/helm/locusthub/templates/rbac.yaml`
+- Swagger 元信息和 API 字段说明：`backend/app/api/routes.py`、`backend/app/models/schemas.py`
+- PR 模板：`.github/pull_request_template.md`
+- 开发注释与 Swagger 规范：`docs/development-guidelines.md`
+- 阶段 3 文档：`docs/stage3-kubernetes-locust.md`
+
+阶段 3 自动化测试覆盖：
+
+- 生成 Namespace、ServiceAccount、master Deployment、worker Deployment、Service、NetworkPolicy。
+- 任务级 namespace 策略会按 manifest namespace 入库。
+- Kubernetes apply 启用时，停止任务会触发 master/worker/Service/ConfigMap/ServiceAccount/NetworkPolicy 删除；任务级 namespace 策略会删除 namespace。
+- Locust `/stats/requests` 原生响应转换为平台 snapshot、stats、errors、workers。
+- Locust API 采集会使用已持久化的 lane namespace，兼容 tenant/run 两种 namespace 策略。
+- 报告归档优先使用真实 Locust master HTML/CSV 响应。
+- OpenAPI 文档包含核心接口 tags、summary 和请求字段 description。
+
+阶段 3 测试结果：
+
+```text
+cd backend && rm -rf data artifacts && PYTHONPATH=. ../.venv/bin/pytest -q -> 14 passed in 0.52s
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py -> passed
+helm template locusthub deploy/helm/locusthub -> not executed, helm is not installed in the current environment
+```
+
+阶段 3 验收边界：
+
+- 当前环境没有真实 Kubernetes 集群，因此未执行真实 apply。
+- 当前环境没有真实 Locust master，因此真实 HTTP 采集由 payload 转换测试和报告 fetcher 假实现覆盖。
+- 生产环境启用方式见 `docs/stage3-kubernetes-locust.md`。
+
+这些限制不影响阶段 3 本地验收；真实集群联调和更严格的 DNS/IP egress 治理将在后续阶段继续推进。

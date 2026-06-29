@@ -7,6 +7,8 @@ from app.repositories.sqlite_repo import SQLiteRepository, new_id, now_iso
 
 class MySQLRepository(SQLiteRepository):
     def init_schema(self) -> None:
+        # MySQL keeps its DDL separate from the SQLite bootstrap schema because
+        # indexes, timestamps, and upsert syntax diverge as the product grows.
         schema_path = Path(__file__).resolve().parents[1] / "db" / "mysql_schema.sql"
         statements = [statement.strip() for statement in schema_path.read_text(encoding="utf-8").split(";") if statement.strip()]
         with self.db.connect() as conn:
@@ -16,6 +18,8 @@ class MySQLRepository(SQLiteRepository):
     def update_quota(self, tenant_id: str, data: dict) -> dict:
         now = now_iso()
         with self.db.connect() as conn:
+            # Override SQLite's ON CONFLICT upsert with MySQL's native syntax
+            # while preserving the repository API used by the FastAPI layer.
             conn.execute(
                 """
                 INSERT INTO tenant_quotas (
@@ -73,6 +77,8 @@ class MySQLRepository(SQLiteRepository):
             record["archived_at"],
         )
         with self.db.connect() as conn:
+            # Report archival can be retried after Locust report fetching or OSS
+            # upload failures, so MySQL uses an idempotent run_id upsert.
             conn.execute(
                 """
                 INSERT INTO locust_report_summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

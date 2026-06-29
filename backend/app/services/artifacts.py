@@ -22,6 +22,8 @@ class LocalArtifactRepository(ArtifactRepository):
         self.root.mkdir(parents=True, exist_ok=True)
 
     def upload_text(self, object_key: str, content: str, content_type: str) -> dict:
+        # Keep the object key layout identical to OSS so local reports can be
+        # promoted or compared with cloud artifacts without path translation.
         path = self.root / object_key
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
@@ -45,6 +47,8 @@ class AliyunOssArtifactRepository(ArtifactRepository):
     def __init__(self, endpoint: str, bucket: str, access_key_id: str, access_key_secret: str, signed_url_expire_seconds: int = 900):
         if not endpoint or not bucket or not access_key_id or not access_key_secret:
             raise ValueError("Aliyun OSS endpoint, bucket, access key id, and access key secret are required")
+        # OSS is optional for local development; defer importing the SDK until
+        # the provider is explicitly enabled.
         try:
             import oss2
         except ImportError as exc:
@@ -81,4 +85,6 @@ class UnconfiguredOssArtifactRepository(ArtifactRepository):
         raise RuntimeError("Aliyun OSS is selected but not fully configured")
 
     def generate_download_url(self, object_key: str) -> str:
+        # Return a stable pointer for metadata previews even though uploads are
+        # blocked until credentials are configured.
         return f"oss://{self.bucket}/{quote(object_key)}"

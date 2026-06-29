@@ -8,9 +8,10 @@ from app.services.artifacts import ArtifactRepository
 
 
 class ReportArchiver:
-    def __init__(self, repo: SQLiteRepository, artifacts: ArtifactRepository):
+    def __init__(self, repo: SQLiteRepository, artifacts: ArtifactRepository, locust_report_fetcher=None):
         self.repo = repo
         self.artifacts = artifacts
+        self.locust_report_fetcher = locust_report_fetcher
 
     def archive(self, run: dict) -> dict:
         snapshots = self.repo.run_snapshots(run["id"])
@@ -24,12 +25,14 @@ class ReportArchiver:
         total_rps = latest["total_rps"] if latest else 0
         fail_ratio = latest["fail_ratio"] if latest else 0
 
+        # Keep report object keys tenant/project/run scoped so OSS lifecycle
+        # policies and future per-tenant export jobs can operate by prefix.
         base = f"loadtest-artifacts/tenants/{run['tenant_id']}/projects/{run['project_id']}/runs/{run['id']}"
-        html = self._html(run, latest, stats)
-        html_artifact = self._save(run, f"{base}/reports/report.html", html, "text/html")
-        requests_artifact = self._save(run, f"{base}/reports/requests.csv", self._csv(stats), "text/csv")
-        failures_artifact = self._save(run, f"{base}/reports/failures.csv", "method,name,error,occurrences\n", "text/csv")
-        history_artifact = self._save(run, f"{base}/reports/history.csv", self._csv(snapshots), "text/csv")
+        real_reports = self._fetch_real_reports(run)
+        html_artifact = self._save(run, f"{base}/reports/report.html", real_reports.get("html") or self._html(run, latest, stats), "text/html")
+        requests_artifact = self._save(run, f"{base}/reports/requests.csv", real_reports.get("requests_csv") or self._csv(stats), "text/csv")
+        failures_artifact = self._save(run, f"{base}/reports/failures.csv", real_reports.get("failures_csv") or "method,name,error,occurrences\n", "text/csv")
+        history_artifact = self._save(run, f"{base}/reports/history.csv", real_reports.get("history_csv") or self._csv(snapshots), "text/csv")
         logs_artifact = self._save(run, f"{base}/logs/master.log", f"Run {run['id']} archived\n", "text/plain")
 
         summary = self.repo.insert_report_summary(
@@ -53,6 +56,19 @@ class ReportArchiver:
             }
         )
         return summary
+
+    def _fetch_real_reports(self, run: dict) -> dict[str, str]:
+        if not self.locust_report_fetcher:
+            return {}
+        lane = self.repo.get_lane_by_run(run["id"])
+        if not lane:
+            return {}
+        try:
+            return self.locust_report_fetcher.fetch(run, lane["namespace"])
+        except Exception:
+            # Report archiving must not fail the stop flow just because the
+            # master Service disappeared first; fall back to platform summaries.
+            return {}
 
     def _save(self, run: dict, object_key: str, content: str, content_type: str) -> dict:
         artifact = self.artifacts.upload_text(object_key, content, content_type)

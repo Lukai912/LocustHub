@@ -48,8 +48,12 @@ class TestRunService:
             raise ValueError("Test run not found")
         collected = []
         existing = len(self.repo.run_snapshots(run_id))
+        lane = self.repo.get_lane_by_run(run_id)
+        # The Locust API collector needs the concrete lane namespace because
+        # deployments can be isolated per tenant or per run.
+        sample_run = {**run, "lane_namespace": lane["namespace"]} if lane else run
         for index in range(samples):
-            snapshot, stats, errors, workers = self.metrics.build_sample(run, existing + index + 1)
+            snapshot, stats, errors, workers = self.metrics.build_sample(sample_run, existing + index + 1)
             self.repo.insert_snapshot(snapshot, stats, errors, workers)
             collected.append(snapshot)
         return collected
@@ -63,6 +67,9 @@ class TestRunService:
         self.repo.update_run_status(run_id, "ARCHIVING")
         summary = self.reports.archive(run)
         self.repo.update_run_status(run_id, "DESTROYING")
+        lane = self.repo.get_lane_by_run(run_id)
+        if lane:
+            self.lanes.destroy(run_id, lane["namespace"])
         self.repo.destroy_lane(run_id)
         completed = self.repo.update_run_status(run_id, "COMPLETED")
         self.repo.audit(run["tenant_id"], "admin", "test_run.stop", "test_run", run_id, {"report": summary["id"]})

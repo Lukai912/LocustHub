@@ -513,16 +513,21 @@ class SQLiteRepository:
             )
 
     def insert_lane(self, run: dict, manifest: dict) -> dict:
+        namespace = manifest.get("namespace", f"lt-{run['tenant_id']}")
+        master = manifest.get("master", {})
+        workers = manifest.get("workers", {})
+        service_account = manifest.get("serviceAccount", {})
+        network_policy = manifest.get("networkPolicy", {})
         item = {
             "id": new_id("lane"),
             "tenant_id": run["tenant_id"],
             "project_id": run["project_id"],
             "test_run_id": run["id"],
-            "namespace": f"lt-{run['tenant_id']}",
-            "master_name": f"{run['id']}-master",
-            "worker_name": f"{run['id']}-worker",
-            "service_account_name": f"{run['id']}-sa",
-            "network_policy_name": f"{run['id']}-egress",
+            "namespace": namespace,
+            "master_name": master.get("name", f"{run['id']}-master"),
+            "worker_name": workers.get("name", f"{run['id']}-worker"),
+            "service_account_name": service_account.get("name", f"{run['id']}-sa"),
+            "network_policy_name": network_policy.get("name", f"{run['id']}-default-deny"),
             "manifest_json": json.dumps(manifest),
             "status": "active",
             "created_at": now_iso(),
@@ -552,6 +557,10 @@ class SQLiteRepository:
     def destroy_lane(self, run_id: str) -> None:
         with self.db.connect() as conn:
             conn.execute("UPDATE test_run_lanes SET status = 'destroyed', destroyed_at = ? WHERE test_run_id = ?", (now_iso(), run_id))
+
+    def get_lane_by_run(self, run_id: str) -> dict | None:
+        with self.db.connect() as conn:
+            return row_to_dict(conn.execute("SELECT * FROM test_run_lanes WHERE test_run_id = ? ORDER BY created_at DESC LIMIT 1", (run_id,)).fetchone())
 
     def insert_snapshot(self, snapshot: dict, stats: list[dict], errors: list[dict], workers: list[dict]) -> None:
         with self.db.connect() as conn:

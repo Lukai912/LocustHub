@@ -23,75 +23,75 @@ RunStatus = Literal[
 
 
 class LoginRequest(BaseModel):
-    username: str = "admin"
-    password: str = "admin"
+    username: str = Field(default="admin", description="Login username for the MVP demo user.")
+    password: str = Field(default="admin", description="Login password placeholder; token auth is used in the MVP.")
 
 
 class TenantCreate(BaseModel):
-    name: str
-    slug: str
+    name: str = Field(description="Tenant display name.")
+    slug: str = Field(description="Unique tenant slug used by operators and future URLs.")
 
 
 class ProjectCreate(BaseModel):
-    tenant_id: str
-    name: str
-    slug: str
+    tenant_id: str = Field(description="Owner tenant id.")
+    name: str = Field(description="Project display name.")
+    slug: str = Field(description="Unique project slug within the tenant.")
 
 
 class ScriptVersionCreate(BaseModel):
-    tenant_id: str
-    project_id: str
-    name: str
-    locustfile: str = "from locust import HttpUser, task\n"
-    requirements: str = ""
+    tenant_id: str = Field(description="Owner tenant id.")
+    project_id: str = Field(description="Project id that owns this script version.")
+    name: str = Field(description="Human-readable script version name.")
+    locustfile: str = Field(default="from locust import HttpUser, task\n", description="Locustfile source code stored for this version.")
+    requirements: str = Field(default="", description="Optional Python requirements needed by the Locust script.")
 
 
 class TestPlanCreate(BaseModel):
-    tenant_id: str
-    project_id: str
-    script_version_id: str
-    name: str
-    target_host: str = "https://example.com"
-    users: int = Field(default=10, ge=1)
-    spawn_rate: int = Field(default=2, ge=1)
-    run_time_seconds: int = Field(default=60, ge=1)
-    worker_count: int = Field(default=1, ge=1)
+    tenant_id: str = Field(description="Owner tenant id.")
+    project_id: str = Field(description="Project id for the load test plan.")
+    script_version_id: str = Field(description="Script version used when the plan starts a run.")
+    name: str = Field(description="Load test plan display name.")
+    target_host: str = Field(default="https://example.com", description="Base URL that Locust will attack after whitelist approval.")
+    users: int = Field(default=10, ge=1, description="Total virtual users requested for the run.")
+    spawn_rate: int = Field(default=2, ge=1, description="Virtual users spawned per second.")
+    run_time_seconds: int = Field(default=60, ge=1, description="Run duration in seconds.")
+    worker_count: int = Field(default=1, ge=1, description="Locust worker replica count.")
 
 
 class TestRunCreate(BaseModel):
-    tenant_id: str
-    project_id: str
-    test_plan_id: str
-    source: Literal["manual", "api", "ci", "schedule"] = "manual"
+    tenant_id: str = Field(description="Owner tenant id.")
+    project_id: str = Field(description="Project id for the run.")
+    test_plan_id: str = Field(description="Plan id copied into the new run.")
+    source: Literal["manual", "api", "ci", "schedule"] = Field(default="manual", description="Run trigger source.")
 
 
 class TargetWhitelistCreate(BaseModel):
-    tenant_id: str
-    project_id: str
-    target_type: Literal["domain", "ip", "cidr"] = "domain"
-    value: str
-    ports: list[int] = Field(default_factory=lambda: [443])
-    environment: str = "test"
-    reason: str = ""
+    tenant_id: str = Field(description="Owner tenant id.")
+    project_id: str = Field(description="Project id allowed to use this target.")
+    target_type: Literal["domain", "ip", "cidr"] = Field(default="domain", description="Whitelist target kind.")
+    value: str = Field(description="Approved domain, IP, or CIDR value.")
+    ports: list[int] = Field(default_factory=lambda: [443], description="Allowed destination ports.")
+    environment: str = Field(default="test", description="Environment label such as test, staging, or prod.")
+    reason: str = Field(default="", description="Business reason for requesting this target.")
 
 
 class QuotaUpdate(BaseModel):
-    max_concurrent_runs: int = 5
-    max_workers_per_run: int = 5
-    max_total_workers: int = 10
-    max_users: int = 1000
-    max_spawn_rate: int = 200
-    max_run_duration_seconds: int = 3600
+    max_concurrent_runs: int = Field(default=5, description="Maximum concurrent running test runs for a tenant.")
+    max_workers_per_run: int = Field(default=5, description="Maximum worker replicas for one run.")
+    max_total_workers: int = Field(default=10, description="Reserved quota field for total worker accounting.")
+    max_users: int = Field(default=1000, description="Maximum virtual users for one run.")
+    max_spawn_rate: int = Field(default=200, description="Maximum virtual user spawn rate per second.")
+    max_run_duration_seconds: int = Field(default=3600, description="Maximum run duration in seconds.")
 
 
 class BaselineRunCreate(BaseModel):
-    tenant_id: str
-    project_id: str
-    baseline_profile_id: str | None = None
-    test_plan_id: str
-    ci_provider: str = "manual"
-    pipeline_id: str = "local"
-    job_id: str = "perf-test"
-    commit_sha: str = "local"
-    branch: str = "main"
-    variables: dict[str, Any] = Field(default_factory=dict)
+    tenant_id: str = Field(description="Owner tenant id.")
+    project_id: str = Field(description="Project id for the CI performance run.")
+    baseline_profile_id: str | None = Field(default=None, description="Optional future baseline profile id.")
+    test_plan_id: str = Field(description="Plan id executed by CI.")
+    ci_provider: str = Field(default="manual", description="CI provider name, for example github-actions or gitlab.")
+    pipeline_id: str = Field(default="local", description="External pipeline id.")
+    job_id: str = Field(default="perf-test", description="External CI job id.")
+    commit_sha: str = Field(default="local", description="Commit SHA under test.")
+    branch: str = Field(default="main", description="Source branch under test.")
+    variables: dict[str, Any] = Field(default_factory=dict, description="Additional CI variables captured for audit.")

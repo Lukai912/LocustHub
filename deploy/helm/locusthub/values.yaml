@@ -7,6 +7,13 @@ service:
   type: ClusterIP
   port: 8000
 
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+
 env:
   DATABASE_BACKEND: mysql
   MYSQL_HOST: mysql
@@ -15,6 +22,12 @@ env:
   MYSQL_PASSWORD: locusthub
   MYSQL_DATABASE: locusthub
   ARTIFACT_STORAGE_PROVIDER: aliyun_oss
+  LANE_RUNTIME_BACKEND: kubernetes
+  LANE_NAMESPACE_STRATEGY: tenant
+  KUBERNETES_APPLY_ENABLED: "true"
+  LOCUST_IMAGE: locustio/locust:latest
+  LOCUST_METRICS_BACKEND: locust_api
+  LOCUST_MASTER_BASE_URL_TEMPLATE: http://{run_id}-master.{namespace}.svc.cluster.local:8089
   ALIYUN_OSS_ENDPOINT: ""
   ALIYUN_OSS_BUCKET: ""
   ALIYUN_OSS_ACCESS_KEY_ID: ""
