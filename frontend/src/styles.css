@@ -199,6 +199,12 @@ button.primary {
   margin-bottom: 10px;
 }
 
+.surface-title.nested {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid #edf1f6;
+}
+
 .surface-title h2 {
   margin: 0;
   font-size: 15px;

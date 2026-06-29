@@ -257,3 +257,43 @@ npm audit --registry=https://registry.npmjs.org/ --omit=dev -> not executed, net
 - 本阶段未直接引入完整 `vue-vben-admin` monorepo，而是实现 Vben 风格的轻量前端工程。
 - 认证仍使用 MVP demo token。
 - 当前构建关闭 Vite minify；生产压缩可由 Nginx/CDN 或后续 Node 升级后处理。
+
+## 12. 阶段 5 准入治理能力验收
+
+阶段 5 新增范围：
+
+- 审批记录表：`approval_requests`
+- DNS/IP 风险快照表：`dns_resolution_snapshots`
+- 配额使用快照表：`quota_usage_snapshots`
+- DNS/IP policy：`DnsIpPolicy`
+- 准入增强：`RunAdmissionController`
+- Governance API：
+  - `GET /api/v1/approval-requests`
+  - `POST /api/v1/approval-requests/{id}/resolve`
+  - `GET /api/v1/dns-resolution-snapshots`
+  - `GET /api/v1/quota-usage-snapshots`
+- 管理后台 Governance 视图展示审批、DNS、配额快照。
+- 阶段 5 文档：`docs/stage5-governance-admission.md`
+
+阶段 5 自动化测试覆盖：
+
+- 创建目标白名单自动生成审批记录。
+- 审批请求 approve/reject 会同步更新目标状态。
+- 准入会阻断私网/保留 IP，并记录 DNS/IP 快照。
+- 准入通过时记录配额使用快照。
+- OpenAPI 文档包含治理接口 summary/tags。
+- 前端结构测试覆盖新增治理接口和 Governance 标签。
+
+阶段 5 测试结果：
+
+```text
+cd backend && rm -rf data artifacts && PYTHONPATH=. ../.venv/bin/pytest -q -> 18 passed in 0.63s
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 487ms
+```
+
+阶段 5 验收边界：
+
+- 超额审批仍按拒绝/待审批简化处理，后续阶段可扩展为正式审批流。
+- NetworkPolicy 尚未按 DNS 快照收敛到具体目标 IP/CIDR。
+- DNS 快照为同步 admission 记录，后续可扩展为异步复核。

@@ -10,6 +10,7 @@ The first archived specification is available at:
 - [阶段 2 基础设施适配](docs/stage2-infrastructure.md)
 - [阶段 3 Kubernetes + 真实 Locust 运行时](docs/stage3-kubernetes-locust.md)
 - [阶段 4 Vben 风格管理后台](docs/stage4-vben-admin-console.md)
+- [阶段 5 准入治理能力](docs/stage5-governance-admission.md)
 - [开发注释与 Swagger 规范](docs/development-guidelines.md)
 - [MVP 验收及测试报告](docs/reports/acceptance-test-report.md)
 

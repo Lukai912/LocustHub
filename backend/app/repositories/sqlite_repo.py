@@ -96,6 +96,35 @@ class SQLiteRepository:
             )
             """,
             """
+            CREATE TABLE IF NOT EXISTS approval_requests (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                request_type TEXT NOT NULL,
+                resource_type TEXT NOT NULL,
+                resource_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                reason TEXT,
+                requested_by TEXT NOT NULL,
+                reviewed_by TEXT,
+                reviewed_at TEXT,
+                created_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS dns_resolution_snapshots (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                test_run_id TEXT NOT NULL,
+                hostname TEXT NOT NULL,
+                resolved_ips_json TEXT NOT NULL,
+                risk_level TEXT NOT NULL,
+                risk_reason TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """,
+            """
             CREATE TABLE IF NOT EXISTS tenant_quotas (
                 tenant_id TEXT PRIMARY KEY,
                 max_concurrent_runs INTEGER NOT NULL,
@@ -105,6 +134,24 @@ class SQLiteRepository:
                 max_spawn_rate INTEGER NOT NULL,
                 max_run_duration_seconds INTEGER NOT NULL,
                 updated_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS quota_usage_snapshots (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                test_run_id TEXT NOT NULL,
+                requested_workers INTEGER NOT NULL,
+                running_workers INTEGER NOT NULL,
+                max_workers INTEGER NOT NULL,
+                requested_users INTEGER NOT NULL,
+                max_users INTEGER NOT NULL,
+                requested_spawn_rate INTEGER NOT NULL,
+                max_spawn_rate INTEGER NOT NULL,
+                decision TEXT NOT NULL,
+                reason TEXT,
+                created_at TEXT NOT NULL
             )
             """,
             """
@@ -401,13 +448,64 @@ class SQLiteRepository:
                     item["created_at"],
                 ),
             )
+            approval = {
+                "id": new_id("approval"),
+                "tenant_id": item["tenant_id"],
+                "project_id": item["project_id"],
+                "request_type": "target",
+                "resource_type": "target_whitelist",
+                "resource_id": item["id"],
+                "status": "pending",
+                "reason": item["reason"],
+                "requested_by": "admin",
+                "reviewed_by": None,
+                "reviewed_at": None,
+                "created_at": item["created_at"],
+            }
+            conn.execute(
+                "INSERT INTO approval_requests VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    approval["id"],
+                    approval["tenant_id"],
+                    approval["project_id"],
+                    approval["request_type"],
+                    approval["resource_type"],
+                    approval["resource_id"],
+                    approval["status"],
+                    approval["reason"],
+                    approval["requested_by"],
+                    approval["reviewed_by"],
+                    approval["reviewed_at"],
+                    approval["created_at"],
+                ),
+            )
         return item
 
     def approve_target(self, target_id: str, actor: str = "admin") -> dict | None:
         now = now_iso()
         with self.db.connect() as conn:
             conn.execute("UPDATE target_whitelists SET status = 'approved', approved_by = ?, approved_at = ? WHERE id = ?", (actor, now, target_id))
+            conn.execute(
+                "UPDATE approval_requests SET status = 'approved', reviewed_by = ?, reviewed_at = ? WHERE resource_type = 'target_whitelist' AND resource_id = ?",
+                (actor, now, target_id),
+            )
             return row_to_dict(conn.execute("SELECT * FROM target_whitelists WHERE id = ?", (target_id,)).fetchone())
+
+    def resolve_approval_request(self, approval_id: str, status: str, actor: str = "admin") -> dict | None:
+        if status not in {"approved", "rejected"}:
+            raise ValueError("Approval status must be approved or rejected")
+        now = now_iso()
+        with self.db.connect() as conn:
+            approval = row_to_dict(conn.execute("SELECT * FROM approval_requests WHERE id = ?", (approval_id,)).fetchone())
+            if not approval:
+                return None
+            conn.execute("UPDATE approval_requests SET status = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?", (status, actor, now, approval_id))
+            if approval["resource_type"] == "target_whitelist":
+                if status == "approved":
+                    conn.execute("UPDATE target_whitelists SET status = 'approved', approved_by = ?, approved_at = ? WHERE id = ?", (actor, now, approval["resource_id"]))
+                else:
+                    conn.execute("UPDATE target_whitelists SET status = 'rejected', approved_by = ?, approved_at = ? WHERE id = ?", (actor, now, approval["resource_id"]))
+            return row_to_dict(conn.execute("SELECT * FROM approval_requests WHERE id = ?", (approval_id,)).fetchone())
 
     def update_quota(self, tenant_id: str, data: dict) -> dict:
         now = now_iso()
@@ -511,6 +609,74 @@ class SQLiteRepository:
                     (tenant_id, project_id),
                 ).fetchall()
             )
+
+    def insert_dns_snapshot(self, run: dict, hostname: str, resolved_ips: list[str], risk_level: str, risk_reason: str) -> dict:
+        item = {
+            "id": new_id("dns"),
+            "tenant_id": run["tenant_id"],
+            "project_id": run["project_id"],
+            "test_run_id": run["id"],
+            "hostname": hostname,
+            "resolved_ips_json": json.dumps(resolved_ips),
+            "risk_level": risk_level,
+            "risk_reason": risk_reason,
+            "created_at": now_iso(),
+        }
+        with self.db.connect() as conn:
+            conn.execute(
+                "INSERT INTO dns_resolution_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    item["id"],
+                    item["tenant_id"],
+                    item["project_id"],
+                    item["test_run_id"],
+                    item["hostname"],
+                    item["resolved_ips_json"],
+                    item["risk_level"],
+                    item["risk_reason"],
+                    item["created_at"],
+                ),
+            )
+        return item
+
+    def insert_quota_usage_snapshot(self, run: dict, quota: dict, running_workers: int, decision: str, reason: str | None = None) -> dict:
+        item = {
+            "id": new_id("quota-usage"),
+            "tenant_id": run["tenant_id"],
+            "project_id": run["project_id"],
+            "test_run_id": run["id"],
+            "requested_workers": run["worker_count"],
+            "running_workers": running_workers,
+            "max_workers": quota["max_total_workers"],
+            "requested_users": run["users"],
+            "max_users": quota["max_users"],
+            "requested_spawn_rate": run["spawn_rate"],
+            "max_spawn_rate": quota["max_spawn_rate"],
+            "decision": decision,
+            "reason": reason,
+            "created_at": now_iso(),
+        }
+        with self.db.connect() as conn:
+            conn.execute(
+                "INSERT INTO quota_usage_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    item["id"],
+                    item["tenant_id"],
+                    item["project_id"],
+                    item["test_run_id"],
+                    item["requested_workers"],
+                    item["running_workers"],
+                    item["max_workers"],
+                    item["requested_users"],
+                    item["max_users"],
+                    item["requested_spawn_rate"],
+                    item["max_spawn_rate"],
+                    item["decision"],
+                    item["reason"],
+                    item["created_at"],
+                ),
+            )
+        return item
 
     def insert_lane(self, run: dict, manifest: dict) -> dict:
         namespace = manifest.get("namespace", f"lt-{run['tenant_id']}")

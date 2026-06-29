@@ -75,6 +75,11 @@ class TargetWhitelistCreate(BaseModel):
     reason: str = Field(default="", description="Business reason for requesting this target.")
 
 
+class ApprovalResolve(BaseModel):
+    status: Literal["approved", "rejected"] = Field(description="Approval decision.")
+    actor: str = Field(default="admin", description="Reviewer username.")
+
+
 class QuotaUpdate(BaseModel):
     max_concurrent_runs: int = Field(default=5, description="Maximum concurrent running test runs for a tenant.")
     max_workers_per_run: int = Field(default=5, description="Maximum worker replicas for one run.")

@@ -60,10 +60,15 @@ def test_openapi_documents_core_api_groups_and_fields():
     spec = response.json()
     start_run = spec["paths"]["/api/v1/test-runs/{run_id}/start"]["post"]
     locust_stats = spec["paths"]["/api/v1/test-runs/{run_id}/locust/stats"]["get"]
+    approval_requests = spec["paths"]["/api/v1/approval-requests"]["get"]
+    dns_snapshots = spec["paths"]["/api/v1/dns-resolution-snapshots"]["get"]
     assert start_run["summary"] == "Start test run"
     assert "Test Runs" in start_run["tags"]
     assert locust_stats["summary"] == "Get Locust UI compatible stats"
     assert "Metrics" in locust_stats["tags"]
+    assert approval_requests["summary"] == "List approval requests"
+    assert "Governance" in approval_requests["tags"]
+    assert dns_snapshots["summary"] == "List DNS/IP admission snapshots"
     test_plan_schema = spec["components"]["schemas"]["TestPlanCreate"]["properties"]
     assert test_plan_schema["target_host"]["description"]
     assert test_plan_schema["worker_count"]["description"]

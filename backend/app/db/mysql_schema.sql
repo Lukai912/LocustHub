@@ -70,6 +70,37 @@ CREATE TABLE IF NOT EXISTS target_whitelists (
     INDEX idx_targets_project (tenant_id, project_id, status)
 );
 
+CREATE TABLE IF NOT EXISTS approval_requests (
+    id VARCHAR(64) PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
+    request_type VARCHAR(32) NOT NULL,
+    resource_type VARCHAR(64) NOT NULL,
+    resource_id VARCHAR(128) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    reason TEXT,
+    requested_by VARCHAR(128) NOT NULL,
+    reviewed_by VARCHAR(128),
+    reviewed_at VARCHAR(64),
+    created_at VARCHAR(64) NOT NULL,
+    INDEX idx_approval_requests_project (tenant_id, project_id, status),
+    INDEX idx_approval_requests_resource (resource_type, resource_id)
+);
+
+CREATE TABLE IF NOT EXISTS dns_resolution_snapshots (
+    id VARCHAR(64) PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
+    test_run_id VARCHAR(64) NOT NULL,
+    hostname VARCHAR(512) NOT NULL,
+    resolved_ips_json JSON NOT NULL,
+    risk_level VARCHAR(32) NOT NULL,
+    risk_reason TEXT NOT NULL,
+    created_at VARCHAR(64) NOT NULL,
+    INDEX idx_dns_snapshots_run (test_run_id, created_at),
+    INDEX idx_dns_snapshots_project (tenant_id, project_id, created_at)
+);
+
 CREATE TABLE IF NOT EXISTS tenant_quotas (
     tenant_id VARCHAR(64) PRIMARY KEY,
     max_concurrent_runs INT NOT NULL,
@@ -79,6 +110,25 @@ CREATE TABLE IF NOT EXISTS tenant_quotas (
     max_spawn_rate INT NOT NULL,
     max_run_duration_seconds INT NOT NULL,
     updated_at VARCHAR(64) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS quota_usage_snapshots (
+    id VARCHAR(64) PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
+    test_run_id VARCHAR(64) NOT NULL,
+    requested_workers INT NOT NULL,
+    running_workers INT NOT NULL,
+    max_workers INT NOT NULL,
+    requested_users INT NOT NULL,
+    max_users INT NOT NULL,
+    requested_spawn_rate INT NOT NULL,
+    max_spawn_rate INT NOT NULL,
+    decision VARCHAR(32) NOT NULL,
+    reason TEXT,
+    created_at VARCHAR(64) NOT NULL,
+    INDEX idx_quota_usage_run (test_run_id, created_at),
+    INDEX idx_quota_usage_project (tenant_id, project_id, created_at)
 );
 
 CREATE TABLE IF NOT EXISTS test_runs (

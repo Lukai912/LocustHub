@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.security import require_token
 from app.models.schemas import (
+    ApprovalResolve,
     BaselineRunCreate,
     LoginRequest,
     ProjectCreate,
@@ -158,6 +159,29 @@ def create_router(deps: dict) -> APIRouter:
         if not target:
             raise HTTPException(status_code=404, detail="Target not found")
         return target
+
+    @router.get("/approval-requests", tags=["Governance"], summary="List approval requests")
+    def approval_requests(_: str = Depends(require_token)) -> list[dict]:
+        """List pending and resolved approval requests for target and quota governance."""
+        return repo.list_table("approval_requests")
+
+    @router.post("/approval-requests/{approval_id}/resolve", tags=["Governance"], summary="Resolve approval request")
+    def resolve_approval_request(approval_id: str, payload: ApprovalResolve, _: str = Depends(require_token)) -> dict:
+        """Approve or reject a governance request and update its linked resource."""
+        approval = repo.resolve_approval_request(approval_id, payload.status, payload.actor)
+        if not approval:
+            raise HTTPException(status_code=404, detail="Approval request not found")
+        return approval
+
+    @router.get("/dns-resolution-snapshots", tags=["Governance"], summary="List DNS/IP admission snapshots")
+    def dns_resolution_snapshots(_: str = Depends(require_token)) -> list[dict]:
+        """List DNS resolution and IP risk decisions captured during admission."""
+        return repo.list_table("dns_resolution_snapshots")
+
+    @router.get("/quota-usage-snapshots", tags=["Governance"], summary="List quota usage snapshots")
+    def quota_usage_snapshots(_: str = Depends(require_token)) -> list[dict]:
+        """List resource and traffic quota decisions captured during admission."""
+        return repo.list_table("quota_usage_snapshots")
 
     @router.get("/tenant-quotas", tags=["Governance"], summary="List tenant quotas")
     def quotas(_: str = Depends(require_token)) -> list[dict]:

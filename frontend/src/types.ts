@@ -87,6 +87,38 @@ export interface TenantQuota {
   max_run_duration_seconds: number;
 }
 
+export interface ApprovalRequest {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  request_type: string;
+  resource_type: string;
+  resource_id: string;
+  status: string;
+  reason?: string | null;
+}
+
+export interface DnsResolutionSnapshot {
+  id: string;
+  test_run_id: string;
+  hostname: string;
+  resolved_ips_json: string;
+  risk_level: string;
+  risk_reason: string;
+}
+
+export interface QuotaUsageSnapshot {
+  id: string;
+  test_run_id: string;
+  requested_workers: number;
+  running_workers: number;
+  max_workers: number;
+  requested_users: number;
+  max_users: number;
+  decision: string;
+  reason?: string | null;
+}
+
 export interface ReportSummary {
   id: string;
   tenant_id: string;

@@ -5,8 +5,11 @@ import {
   createRunFromPlan,
   getLocustStats,
   getReport,
+  listApprovalRequests,
+  listDnsSnapshots,
   listProjects,
   listQuotas,
+  listQuotaUsageSnapshots,
   listScripts,
   listTargets,
   listTenants,
@@ -16,8 +19,11 @@ import {
   stopRun,
 } from './api/client';
 import type {
+  ApprovalRequest,
+  DnsResolutionSnapshot,
   LocustStatsResponse,
   Project,
+  QuotaUsageSnapshot,
   ReportSummary,
   ScriptVersion,
   TargetWhitelist,
@@ -55,6 +61,9 @@ const plans = ref<TestPlan[]>([]);
 const runs = ref<TestRun[]>([]);
 const targets = ref<TargetWhitelist[]>([]);
 const quotas = ref<TenantQuota[]>([]);
+const approvals = ref<ApprovalRequest[]>([]);
+const dnsSnapshots = ref<DnsResolutionSnapshot[]>([]);
+const quotaUsageSnapshots = ref<QuotaUsageSnapshot[]>([]);
 const stats = ref<LocustStatsResponse | null>(null);
 const report = ref<ReportSummary | null>(null);
 
@@ -77,7 +86,7 @@ async function withLoading(task: () => Promise<void>) {
 
 async function refreshAll() {
   await withLoading(async () => {
-    const [tenantRows, projectRows, scriptRows, planRows, runRows, targetRows, quotaRows] = await Promise.all([
+    const [tenantRows, projectRows, scriptRows, planRows, runRows, targetRows, quotaRows, approvalRows, dnsRows, quotaUsageRows] = await Promise.all([
       listTenants(),
       listProjects(),
       listScripts(),
@@ -85,6 +94,9 @@ async function refreshAll() {
       listTestRuns(),
       listTargets(),
       listQuotas(),
+      listApprovalRequests(),
+      listDnsSnapshots(),
+      listQuotaUsageSnapshots(),
     ]);
     tenants.value = tenantRows;
     projects.value = projectRows;
@@ -93,6 +105,9 @@ async function refreshAll() {
     runs.value = runRows;
     targets.value = targetRows;
     quotas.value = quotaRows;
+    approvals.value = approvalRows;
+    dnsSnapshots.value = dnsRows;
+    quotaUsageSnapshots.value = quotaUsageRows;
     if (!selectedRunId.value && runRows[0]) selectedRunId.value = runRows[0].id;
     if (selectedRunId.value) await refreshRunDetail(selectedRunId.value);
   });
@@ -327,10 +342,24 @@ onMounted(refreshAll);
       </section>
 
       <section v-if="activeView === 'governance'" class="content surface">
-        <div class="surface-title"><h2>Governance</h2><span>{{ targets.length }} targets</span></div>
+        <div class="surface-title"><h2>Governance</h2><span>{{ targets.length }} targets · {{ approvals.length }} approvals</span></div>
         <table>
           <thead><tr><th>Target</th><th>Type</th><th>Project</th><th>Environment</th><th>Status</th></tr></thead>
           <tbody><tr v-for="target in targets" :key="target.id"><td>{{ target.value }}</td><td>{{ target.target_type }}</td><td>{{ target.project_id }}</td><td>{{ target.environment }}</td><td>{{ target.status }}</td></tr></tbody>
+        </table>
+        <div class="surface-title nested"><h2>Approval Requests</h2><span>{{ approvals.length }} records</span></div>
+        <table>
+          <thead><tr><th>Type</th><th>Resource</th><th>Status</th><th>Reason</th></tr></thead>
+          <tbody><tr v-for="approval in approvals" :key="approval.id"><td>{{ approval.request_type }}</td><td>{{ approval.resource_id }}</td><td>{{ approval.status }}</td><td>{{ approval.reason ?? '-' }}</td></tr></tbody>
+        </table>
+        <div class="surface-title nested"><h2>Admission Snapshots</h2><span>{{ dnsSnapshots.length }} DNS · {{ quotaUsageSnapshots.length }} quota</span></div>
+        <table>
+          <thead><tr><th>Run</th><th>Hostname</th><th>Risk</th><th>Reason</th></tr></thead>
+          <tbody><tr v-for="snapshot in dnsSnapshots" :key="snapshot.id"><td>{{ snapshot.test_run_id }}</td><td>{{ snapshot.hostname }}</td><td>{{ snapshot.risk_level }}</td><td>{{ snapshot.risk_reason }}</td></tr></tbody>
+        </table>
+        <table>
+          <thead><tr><th>Run</th><th>Decision</th><th>Workers</th><th>Users</th><th>Reason</th></tr></thead>
+          <tbody><tr v-for="snapshot in quotaUsageSnapshots" :key="snapshot.id"><td>{{ snapshot.test_run_id }}</td><td>{{ snapshot.decision }}</td><td>{{ snapshot.requested_workers }} / {{ snapshot.max_workers }}</td><td>{{ snapshot.requested_users }} / {{ snapshot.max_users }}</td><td>{{ snapshot.reason ?? '-' }}</td></tr></tbody>
         </table>
       </section>
 

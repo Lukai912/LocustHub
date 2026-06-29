@@ -1,6 +1,9 @@
 import type {
+  ApprovalRequest,
+  DnsResolutionSnapshot,
   LocustStatsResponse,
   Project,
+  QuotaUsageSnapshot,
   ReportSummary,
   ScriptVersion,
   TargetWhitelist,
@@ -88,4 +91,16 @@ export async function listTargets(): Promise<TargetWhitelist[]> {
 
 export async function listQuotas(): Promise<TenantQuota[]> {
   return request<TenantQuota[]>('/tenant-quotas');
+}
+
+export async function listApprovalRequests(): Promise<ApprovalRequest[]> {
+  return request<ApprovalRequest[]>('/approval-requests');
+}
+
+export async function listDnsSnapshots(): Promise<DnsResolutionSnapshot[]> {
+  return request<DnsResolutionSnapshot[]>('/dns-resolution-snapshots');
+}
+
+export async function listQuotaUsageSnapshots(): Promise<QuotaUsageSnapshot[]> {
+  return request<QuotaUsageSnapshot[]>('/quota-usage-snapshots');
 }
