@@ -32,25 +32,25 @@ def verify_compose() -> None:
         [
             "mysql:",
             "api:",
-            "admin:",
-            "frontend/Dockerfile",
+            "backend/Dockerfile",
+            "FRONTEND_DIST_DIR",
             "healthcheck:",
             "depends_on:",
             "VITE_API_BASE_URL",
             "8000:8000",
-            "8080:80",
         ],
     )
 
 
-def verify_frontend_container() -> None:
-    require_contains("frontend/Dockerfile", ["npm ci", "npm run build", "nginx"])
+def verify_integrated_container() -> None:
     require_contains(
-        "frontend/nginx.conf",
+        "backend/Dockerfile",
         [
-            "try_files $uri $uri/ /index.html",
-            "proxy_pass http://api:8000",
-            "location /api/",
+            "FROM node:20-alpine AS frontend-build",
+            "npm ci",
+            "npm run build",
+            "FRONTEND_DIST_DIR=/app/frontend_dist",
+            "COPY --from=frontend-build /app/dist /app/frontend_dist",
         ],
     )
 
@@ -82,7 +82,8 @@ def verify_helm() -> None:
             "ingress:",
             "secret:",
             "repository: locusthub-api",
-            "repository: locusthub-admin",
+            "enabled: false",
+            "FRONTEND_DIST_DIR: /app/frontend_dist",
             "ALIYUN_OSS_BUCKET",
             "LOCUST_METRICS_BACKEND",
         ],
@@ -93,20 +94,23 @@ def verify_helm() -> None:
     )
     require_contains(
         "deploy/helm/locusthub/templates/admin-deployment.yaml",
-        ["locusthub-admin", "containerPort: 80", ".Values.admin.image.repository"],
+        ["{{- if .Values.admin.enabled }}", "locusthub-admin", "containerPort: 80", ".Values.admin.image.repository"],
     )
-    require_contains("deploy/helm/locusthub/templates/admin-service.yaml", ["targetPort: 80", "locusthub-admin"])
+    require_contains(
+        "deploy/helm/locusthub/templates/admin-service.yaml",
+        ["{{- if .Values.admin.enabled }}", "targetPort: 80", "locusthub-admin"],
+    )
     require_contains("deploy/helm/locusthub/templates/secret.yaml", ["kind: Secret", "stringData:", "DEMO_TOKEN:"])
     require_contains(
         "deploy/helm/locusthub/templates/ingress.yaml",
-        ["kind: Ingress", "locusthub-api", "locusthub-admin", "secretName:"],
+        ["kind: Ingress", "locusthub-api", "locusthub-admin", ".Values.admin.enabled", "secretName:"],
     )
 
 
 def main() -> int:
     checks = [
         verify_compose,
-        verify_frontend_container,
+        verify_integrated_container,
         verify_env_example,
         verify_helm,
     ]
@@ -114,9 +118,9 @@ def main() -> int:
         check()
 
     print("LocustHub deployment package ready")
-    print("- docker-compose.yml includes mysql, api, and admin services")
-    print("- frontend/Dockerfile builds and serves the Vben-style admin console")
-    print("- deploy/helm/locusthub includes API and admin workloads")
+    print("- docker-compose.yml includes mysql and one api service that serves the admin console")
+    print("- backend/Dockerfile builds the Vue admin console and copies it into the FastAPI image")
+    print("- deploy/helm/locusthub defaults to integrated admin serving with optional split admin workloads")
     print("- deploy/helm/locusthub includes ingress, TLS, and Secret-backed settings")
     print("- .env.example documents required local, OSS, and Kubernetes runtime keys")
     return 0

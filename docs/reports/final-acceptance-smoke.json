@@ -12,7 +12,7 @@
       "violations": []
     },
     "deployment_package": {
-      "output": "LocustHub deployment package ready\n- docker-compose.yml includes mysql, api, and admin services\n- frontend/Dockerfile builds and serves the Vben-style admin console\n- deploy/helm/locusthub includes API and admin workloads\n- deploy/helm/locusthub includes ingress, TLS, and Secret-backed settings\n- .env.example documents required local, OSS, and Kubernetes runtime keys",
+      "output": "LocustHub deployment package ready\n- docker-compose.yml includes mysql and one api service that serves the admin console\n- backend/Dockerfile builds the Vue admin console and copies it into the FastAPI image\n- deploy/helm/locusthub defaults to integrated admin serving with optional split admin workloads\n- deploy/helm/locusthub includes ingress, TLS, and Secret-backed settings\n- .env.example documents required local, OSS, and Kubernetes runtime keys",
       "ready": true
     },
     "health": {

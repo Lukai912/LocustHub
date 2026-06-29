@@ -1,15 +1,16 @@
 # LocustHub 本地调试说明
 
-## 启动后端
+## 启动 LocustHub
 
 ```bash
 ./scripts/run_local.sh
 ```
 
-后端地址：
+管理后台和 API 由同一个 FastAPI 服务提供：
 
 ```text
-http://127.0.0.1:8000
+Admin: http://127.0.0.1:8000/
+Swagger: http://127.0.0.1:8000/docs
 ```
 
 默认登录 token：
@@ -18,15 +19,7 @@ http://127.0.0.1:8000
 dev-token
 ```
 
-## 打开本地管理页面
-
-直接打开：
-
-```text
-frontend/index.html
-```
-
-页面可以完成：
+管理页面可以完成：
 
 - 创建并启动 Demo 压测任务
 - 查看 Locust UI 风格 Statistics

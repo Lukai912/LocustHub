@@ -25,7 +25,7 @@ scripts/run_local.sh
 访问：
 
 - API/Swagger: `http://127.0.0.1:8000/docs`
-- Admin: `http://127.0.0.1:5173`
+- Admin: `http://127.0.0.1:8000/`
 
 ## 3. Docker Compose 全栈
 
@@ -36,8 +36,12 @@ docker compose up --build
 
 访问：
 
-- API: `http://127.0.0.1:8000`
-- Admin: `http://127.0.0.1:8080`
+- Admin: `http://127.0.0.1:8000/`
+- API: `http://127.0.0.1:8000/api/v1`
+- Swagger: `http://127.0.0.1:8000/docs`
+
+默认 Compose 只启动 `mysql` 和 `api` 两个服务。`api` 镜像在构建阶段打包 Vue
+管理后台，并由 FastAPI 同源托管静态文件和 `/api/v1`。
 
 ## 4. Helm 生产部署
 
@@ -56,6 +60,7 @@ env:
   ALIYUN_OSS_ENDPOINT: oss-cn-example.aliyuncs.com
   PUBLIC_API_BASE_URL: https://locusthub.example.com/api/v1
   PUBLIC_ADMIN_BASE_URL: https://locusthub.example.com
+  FRONTEND_DIST_DIR: /app/frontend_dist
 ```
 
 部署：
@@ -70,6 +75,10 @@ helm upgrade --install locusthub deploy/helm/locusthub -n locusthub --create-nam
 - `ALIYUN_OSS_ACCESS_KEY_ID`
 - `ALIYUN_OSS_ACCESS_KEY_SECRET`
 - `DEMO_TOKEN`
+
+默认 Helm 部署也是单服务入口：Ingress 的 `/api` 和 `/` 都可以路由到
+`locusthub-api`。如果后续需要独立扩展管理后台，可以显式设置
+`admin.enabled=true`，此时 `/` 会路由到 `locusthub-admin`。
 
 ## 5. 阿里云 OSS
 
@@ -109,4 +118,3 @@ scripts/run_ci_baseline.py \
 - 用户管理后台、OIDC、细粒度 RBAC 仍是后续增强。
 - Helm chart 不创建证书签发资源，需要平台已有 cert-manager 或网关能力。
 - 本地验收脚本使用 SQLite 和模拟指标，真实集群联调需要 Kubernetes、MySQL、OSS 和 Locust API runtime 配套环境。
-

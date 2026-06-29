@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import create_router
 from app.core.config import get_settings
@@ -29,6 +33,40 @@ OPENAPI_TAGS = [
     {"name": "Governance", "description": "Target whitelist, approval, and tenant quota APIs."},
     {"name": "CI Baselines", "description": "CI-triggered performance baseline execution."},
 ]
+
+
+def mount_frontend(app: FastAPI, dist_dir: Path, api_prefix: str) -> None:
+    """Serve the built Vue admin console from the same FastAPI process."""
+    index_file = dist_dir / "index.html"
+    assets_dir = dist_dir / "assets"
+    reserved_prefixes = (
+        api_prefix.strip("/"),
+        "docs",
+        "redoc",
+        "openapi.json",
+        "health",
+    )
+
+    if not index_file.exists():
+        return
+
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+
+    @app.get("/", include_in_schema=False)
+    def frontend_index() -> FileResponse:
+        return FileResponse(index_file)
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def frontend_spa_fallback(path: str) -> FileResponse:
+        """Return index.html for client-side routes while leaving API paths to FastAPI."""
+        if path.startswith(reserved_prefixes):
+            raise HTTPException(status_code=404)
+
+        requested_file = dist_dir / path
+        if requested_file.is_file():
+            return FileResponse(requested_file)
+        return FileResponse(index_file)
 
 
 def create_app() -> FastAPI:
@@ -104,6 +142,8 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok", "app": settings.app_name}
+
+    mount_frontend(app, settings.frontend_dist_dir, settings.api_prefix)
 
     return app
 

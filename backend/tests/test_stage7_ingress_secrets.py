@@ -48,7 +48,7 @@ def test_secret_template_can_create_demo_secret_or_use_existing_secret():
     assert "not .Values.secret.existingSecret" in secret
 
 
-def test_ingress_template_routes_api_and_admin_with_tls():
+def test_ingress_template_routes_api_and_integrated_admin_with_tls():
     ingress = read_repo_file("deploy/helm/locusthub/templates/ingress.yaml")
 
     assert "apiVersion: networking.k8s.io/v1" in ingress
@@ -56,5 +56,6 @@ def test_ingress_template_routes_api_and_admin_with_tls():
     assert "secretName:" in ingress
     assert "locusthub-api" in ingress
     assert "locusthub-admin" in ingress
+    assert ".Values.admin.enabled" in ingress
     assert "path: /api" in ingress
     assert "path: /" in ingress

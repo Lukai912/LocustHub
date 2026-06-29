@@ -31,6 +31,7 @@ class Settings(BaseModel):
     locust_master_base_url_template: str = "http://{run_id}-master.{namespace}.svc.cluster.local:8089"
     locust_api_timeout_seconds: float = 5.0
     api_prefix: str = "/api/v1"
+    frontend_dist_dir: Path = Path("../frontend/dist")
     demo_token: str = "dev-token"
 
 
@@ -63,5 +64,6 @@ def get_settings() -> Settings:
         locust_master_base_url_template=os.getenv("LOCUST_MASTER_BASE_URL_TEMPLATE", "http://{run_id}-master.{namespace}.svc.cluster.local:8089"),
         locust_api_timeout_seconds=float(os.getenv("LOCUST_API_TIMEOUT_SECONDS", "5.0")),
         api_prefix=os.getenv("API_PREFIX", "/api/v1"),
+        frontend_dist_dir=Path(os.getenv("FRONTEND_DIST_DIR", "../frontend/dist")),
         demo_token=os.getenv("DEMO_TOKEN", "dev-token"),
     )

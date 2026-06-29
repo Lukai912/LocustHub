@@ -13,9 +13,9 @@ import type {
   TestRun,
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1';
-// The MVP backend still uses a demo bearer token; centralizing the fallback
-// keeps the later auth replacement localized to this client.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
+// The admin console is served by FastAPI by default, so same-origin API calls
+// work locally, in Docker, and behind Helm Ingress without an extra proxy.
 const DEMO_TOKEN = import.meta.env.VITE_DEMO_TOKEN ?? 'dev-token';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {

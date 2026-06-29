@@ -35,7 +35,7 @@ https://jsonplaceholder.typicode.com/todos/1
 管理页面：
 
 ```text
-frontend/index.html
+http://127.0.0.1:8000/
 ```
 
 测试命令：
@@ -472,3 +472,40 @@ git diff --check -> passed
 
 - 本阶段完成本地 deterministic 验收，不直接连接真实 Kubernetes/MySQL/OSS 环境。
 - 真实云环境联调仍需要用户提供集群、域名、证书、OSS bucket 和 Secret。
+
+## 18. 阶段 11 前后端不分离交付验收
+
+阶段 11 新增范围：
+
+- FastAPI 同源托管构建后的 Vue 管理后台。
+- 前端默认 API 地址调整为 `/api/v1`。
+- `scripts/run_local.sh` 改为先构建前端、再启动单个 FastAPI 服务。
+- `backend/Dockerfile` 改为多阶段构建，后端镜像内置前端 `dist`。
+- Docker Compose 默认只启动 `mysql` 与 `api`。
+- Helm 默认 `admin.enabled=false`，Ingress 根路径路由到 `locusthub-api`。
+- 阶段 11 文档：`docs/stage11-integrated-frontend-backend.md`
+
+阶段 11 自动化测试覆盖：
+
+- `/` 返回前端 `index.html`。
+- `/assets/*` 返回静态资源。
+- 前端路由 fallback 不吞掉 `/api/v1`、`/health`、Swagger/OpenAPI。
+- Stage6/Stage7 部署契约与单服务默认交付一致。
+
+阶段 11 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_integrated_frontend.py tests/test_stage6_deployment_package.py tests/test_stage7_ingress_secrets.py -q -> 12 passed in 0.39s
+cd backend && DATABASE_PATH=/private/tmp/locusthub-stage11-full.db ARTIFACT_ROOT=/private/tmp/locusthub-stage11-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 41 passed in 1.85s
+cd frontend && npm run build -> passed, built in 468ms
+python3 scripts/verify_deployment_package.py -> LocustHub deployment package ready, single api service serves admin console
+scripts/run_acceptance_smoke.py --output docs/reports/final-acceptance-smoke.json -> LocustHub acceptance smoke passed
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py scripts/verify_deployment_package.py scripts/run_ci_baseline.py scripts/run_acceptance_smoke.py -> passed
+git diff --check -> passed
+```
+
+阶段 11 验收边界：
+
+- 前端源码仍保留独立 Vite 工程，便于后续复杂 UI 开发。
+- Helm 独立 Admin workload 仍作为可选兼容路径保留，默认不启用。
+- 本阶段验证本地单服务和静态部署包，未执行真实 Docker build 或 Helm template。
