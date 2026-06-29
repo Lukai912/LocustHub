@@ -440,3 +440,35 @@ git diff --check -> passed
 
 - 本阶段不新增 baseline profile 管理 API。
 - CI 脚本为同步调用，后续可扩展为异步轮询长任务。
+
+## 17. 阶段 10 端到端验收与完整使用文档
+
+阶段 10 新增范围：
+
+- 最终验收脚本：`scripts/run_acceptance_smoke.py`
+- 完整部署与使用 Runbook：`docs/full-deployment-runbook.md`
+- 最终验收 JSON 报告输出能力：`docs/reports/final-acceptance-smoke.json`
+
+阶段 10 自动化测试覆盖：
+
+- 验收脚本必须退出 `0` 并生成 JSON 报告。
+- JSON 报告必须覆盖 health、auth、load test、report、CI baseline、deployment package。
+- runbook 必须包含本地调试、Compose、Helm、OSS、CI 的实际命令入口。
+
+阶段 10 测试结果：
+
+```text
+scripts/run_acceptance_smoke.py --output docs/reports/final-acceptance-smoke.json -> LocustHub acceptance smoke passed
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage10_e2e_acceptance.py -q -> 2 passed in 0.78s
+cd backend && DATABASE_PATH=/private/tmp/locusthub-stage10-full.db ARTIFACT_ROOT=/private/tmp/locusthub-stage10-full-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 39 passed in 1.75s
+cd frontend && npm run build -> passed, built in 460ms
+python3 scripts/verify_deployment_package.py -> LocustHub deployment package ready
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py scripts/verify_deployment_package.py scripts/run_ci_baseline.py scripts/run_acceptance_smoke.py -> passed
+node frontend/tests/structure.test.mjs -> passed
+git diff --check -> passed
+```
+
+阶段 10 验收边界：
+
+- 本阶段完成本地 deterministic 验收，不直接连接真实 Kubernetes/MySQL/OSS 环境。
+- 真实云环境联调仍需要用户提供集群、域名、证书、OSS bucket 和 Secret。
