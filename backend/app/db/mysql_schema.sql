@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(128) NOT NULL,
     token VARCHAR(255) NOT NULL UNIQUE,
     role VARCHAR(64) NOT NULL,
+    password_hash VARCHAR(128),
     created_at VARCHAR(64) NOT NULL,
     INDEX idx_users_tenant (tenant_id)
 );

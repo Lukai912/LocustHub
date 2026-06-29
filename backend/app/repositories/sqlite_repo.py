@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from app.core.security import hash_password
 from app.core.database import Database, row_to_dict, rows_to_dicts
 
 
@@ -38,6 +39,7 @@ class SQLiteRepository:
                 username TEXT NOT NULL,
                 token TEXT NOT NULL UNIQUE,
                 role TEXT NOT NULL,
+                password_hash TEXT,
                 created_at TEXT NOT NULL
             )
             """,
@@ -327,14 +329,29 @@ class SQLiteRepository:
         with self.db.connect() as conn:
             for statement in schema:
                 conn.execute(statement)
+            columns = [row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+            if "password_hash" not in columns:
+                conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
 
     def seed_demo(self, token: str) -> None:
         with self.db.connect() as conn:
             exists = conn.execute("SELECT id FROM tenants LIMIT 1").fetchone()
-            if exists:
-                return
             now = now_iso()
             tenant_id = "tenant-demo"
+            admin_hash = hash_password("admin", "admin")
+            viewer_hash = hash_password("viewer", "viewer")
+            if exists:
+                conn.execute(
+                    "UPDATE users SET password_hash = ? WHERE username = 'admin' AND (password_hash IS NULL OR password_hash = '')",
+                    (admin_hash,),
+                )
+                viewer = conn.execute("SELECT id FROM users WHERE id = ?", ("user-viewer",)).fetchone()
+                if not viewer:
+                    conn.execute(
+                        "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        ("user-viewer", tenant_id, "viewer", f"{token}-viewer", "viewer", viewer_hash, now),
+                    )
+                return
             project_id = "project-demo"
             script_id = "script-demo"
             plan_id = "plan-demo"
@@ -343,8 +360,12 @@ class SQLiteRepository:
                 (tenant_id, "Demo Tenant", "demo", "active", now),
             )
             conn.execute(
-                "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)",
-                ("user-admin", tenant_id, "admin", token, "admin", now),
+                "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)",
+                ("user-admin", tenant_id, "admin", token, "admin", admin_hash, now),
+            )
+            conn.execute(
+                "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)",
+                ("user-viewer", tenant_id, "viewer", f"{token}-viewer", "viewer", viewer_hash, now),
             )
             conn.execute(
                 "INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?)",
@@ -379,6 +400,14 @@ class SQLiteRepository:
     def list_table(self, table: str) -> list[dict]:
         with self.db.connect() as conn:
             return rows_to_dicts(conn.execute(f"SELECT * FROM {table}").fetchall())
+
+    def get_user_by_token(self, token: str) -> dict | None:
+        with self.db.connect() as conn:
+            return row_to_dict(conn.execute("SELECT * FROM users WHERE token = ?", (token,)).fetchone())
+
+    def get_user_by_username(self, username: str) -> dict | None:
+        with self.db.connect() as conn:
+            return row_to_dict(conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone())
 
     def get_by_id(self, table: str, item_id: str) -> dict | None:
         with self.db.connect() as conn:

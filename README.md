@@ -13,6 +13,7 @@ The first archived specification is available at:
 - [阶段 5 准入治理能力](docs/stage5-governance-admission.md)
 - [阶段 6 部署交付包](docs/stage6-deployment-package.md)
 - [阶段 7 Ingress/TLS 与 Secret-ready Helm](docs/stage7-ingress-secrets.md)
+- [阶段 8 认证与租户范围收敛](docs/stage8-auth-tenant-scope.md)
 - [开发注释与 Swagger 规范](docs/development-guidelines.md)
 - [MVP 验收及测试报告](docs/reports/acceptance-test-report.md)
 

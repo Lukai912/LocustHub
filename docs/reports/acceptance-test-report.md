@@ -368,3 +368,40 @@ cd backend && DATABASE_PATH=/private/tmp/locusthub-stage7-full.db ARTIFACT_ROOT=
 
 - 本阶段不创建证书签发资源，不绑定具体 Ingress Controller。
 - 正式认证与租户权限模型仍在后续阶段替换 MVP demo token。
+
+## 15. 阶段 8 认证与租户范围收敛验收
+
+阶段 8 新增范围：
+
+- 登录校验：`POST /api/v1/auth/login`
+- 当前用户上下文：`GET /api/v1/me`
+- 用户表密码 hash 字段：`users.password_hash`
+- repository 用户查找：`get_user_by_token`、`get_user_by_username`
+- FastAPI `current_user` 依赖和租户范围 helper
+- Demo viewer 用户：`viewer/viewer`
+- 阶段 8 文档：`docs/stage8-auth-tenant-scope.md`
+
+阶段 8 自动化测试覆盖：
+
+- 错误密码返回 `401`。
+- 不存在于 `users` 表的 bearer token 返回 `401`。
+- `/me` 返回 token 对应的持久化用户上下文。
+- 非 admin 用户只能看到自己租户的项目。
+- 非 admin 用户跨租户创建项目返回 `403`。
+
+阶段 8 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage8_auth_tenant_scope.py -q -> 5 passed in 0.58s
+cd backend && DATABASE_PATH=/private/tmp/locusthub-stage8-full.db ARTIFACT_ROOT=/private/tmp/locusthub-stage8-full-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 33 passed in 0.96s
+cd frontend && npm run build -> passed, built in 474ms
+python3 scripts/verify_deployment_package.py -> LocustHub deployment package ready
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py scripts/verify_deployment_package.py -> passed
+node frontend/tests/structure.test.mjs -> passed
+```
+
+阶段 8 验收边界：
+
+- 本阶段不新增用户管理后台。
+- 前端仍保留 demo token fallback，正式登录页和 token 存储策略进入后续阶段。
+- 密码 hash 使用标准库实现，后续生产化可替换为 bcrypt/OIDC/企业 IdP。
