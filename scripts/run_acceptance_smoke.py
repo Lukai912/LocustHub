@@ -85,7 +85,6 @@ def main() -> int:
     stopped.raise_for_status()
     stats_body = stats.json()
     checks["load_test"] = {
-        "run_id": run["id"],
         "run_status": stopped.json()["status"],
         "total_rps": stats_body["total_rps"],
         "p95": stats_body["stats"][0]["response_time_percentile_0.95"],
@@ -93,7 +92,13 @@ def main() -> int:
 
     report = client.get(f"/api/v1/test-runs/{run['id']}/report", headers=auth_headers(token))
     report.raise_for_status()
-    checks["report"] = report.json()
+    report_body = report.json()
+    checks["report"] = {
+        "report_status": report_body["report_status"],
+        "total_requests": report_body["total_requests"],
+        "total_failures": report_body["total_failures"],
+        "p95_response_time": report_body["p95_response_time"],
+    }
 
     baseline = client.post(
         "/api/v1/ci/performance-runs",
@@ -112,7 +117,12 @@ def main() -> int:
     baseline.raise_for_status()
     result = client.get(f"/api/v1/ci/performance-runs/{baseline.json()['test_run_id']}/result", headers=auth_headers(token))
     result.raise_for_status()
-    checks["ci_baseline"] = result.json()
+    result_body = result.json()
+    checks["ci_baseline"] = {
+        "status": result_body["status"],
+        "conclusion": result_body["conclusion"],
+        "violations": result_body["violations"],
+    }
 
     verifier = subprocess.run(
         [sys.executable, "scripts/verify_deployment_package.py"],

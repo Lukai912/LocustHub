@@ -7,16 +7,8 @@
       "username": "admin"
     },
     "ci_baseline": {
-      "baseline_run_id": "baseline-04989551be19",
-      "branch": "main",
-      "ci_provider": "local",
-      "commit_sha": "local",
       "conclusion": "passed",
-      "created_at": "2026-06-29T16:59:10.295983+00:00",
-      "job_id": "smoke",
-      "pipeline_id": "acceptance",
       "status": "RUNNING",
-      "test_run_id": "run-709b14c37d9e",
       "violations": []
     },
     "deployment_package": {
@@ -29,7 +21,6 @@
     },
     "load_test": {
       "p95": 246.0,
-      "run_id": "run-755044ae1906",
       "run_status": "COMPLETED",
       "total_rps": 5.4
     },
@@ -37,24 +28,10 @@
       "paths": 27
     },
     "report": {
-      "archived_at": "2026-06-29T16:59:10.263265+00:00",
-      "avg_response_time": 118.0,
-      "fail_ratio": 0.0,
-      "failures_csv_artifact_id": "artifact-b2e2c9659303",
-      "history_csv_artifact_id": "artifact-8d9d3c3d4d79",
-      "html_artifact_id": "artifact-5954f700e89a",
-      "id": "report-61960f3fe4ba",
-      "logs_artifact_id": "artifact-46b372d160aa",
       "p95_response_time": 248.0,
-      "p99_response_time": 428.0,
-      "project_id": "project-demo",
       "report_status": "archived",
-      "requests_csv_artifact_id": "artifact-af2e6ff44e09",
-      "run_id": "run-755044ae1906",
-      "tenant_id": "tenant-demo",
       "total_failures": 0,
-      "total_requests": 24,
-      "total_rps": 7.2
+      "total_requests": 24
     }
   },
   "status": "passed"
