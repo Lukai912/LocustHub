@@ -20,6 +20,25 @@ adminService:
   type: ClusterIP
   port: 80
 
+ingress:
+  enabled: true
+  className: nginx
+  host: locusthub.example.com
+  annotations: {}
+  tls:
+    enabled: true
+    secretName: locusthub-tls
+
+secret:
+  create: true
+  name: ""
+  existingSecret: ""
+  stringData:
+    MYSQL_PASSWORD: locusthub
+    ALIYUN_OSS_ACCESS_KEY_ID: ""
+    ALIYUN_OSS_ACCESS_KEY_SECRET: ""
+    DEMO_TOKEN: dev-token
+
 serviceAccount:
   create: true
   name: ""
@@ -32,7 +51,6 @@ env:
   MYSQL_HOST: mysql
   MYSQL_PORT: "3306"
   MYSQL_USER: locusthub
-  MYSQL_PASSWORD: locusthub
   MYSQL_DATABASE: locusthub
   ARTIFACT_STORAGE_PROVIDER: aliyun_oss
   LANE_RUNTIME_BACKEND: kubernetes
@@ -43,9 +61,6 @@ env:
   LOCUST_MASTER_BASE_URL_TEMPLATE: http://{run_id}-master.{namespace}.svc.cluster.local:8089
   ALIYUN_OSS_ENDPOINT: ""
   ALIYUN_OSS_BUCKET: ""
-  ALIYUN_OSS_ACCESS_KEY_ID: ""
-  ALIYUN_OSS_ACCESS_KEY_SECRET: ""
   ALIYUN_OSS_SIGNED_URL_EXPIRE_SECONDS: "900"
   PUBLIC_API_BASE_URL: https://locusthub.example.com/api/v1
   PUBLIC_ADMIN_BASE_URL: https://locusthub.example.com
-  DEMO_TOKEN: dev-token

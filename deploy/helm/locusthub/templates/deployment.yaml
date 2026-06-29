@@ -36,3 +36,23 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (default (printf "%s-secrets" .Release.Name) .Values.secret.name) .Values.secret.existingSecret }}
+                  key: MYSQL_PASSWORD
+            - name: ALIYUN_OSS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (default (printf "%s-secrets" .Release.Name) .Values.secret.name) .Values.secret.existingSecret }}
+                  key: ALIYUN_OSS_ACCESS_KEY_ID
+            - name: ALIYUN_OSS_ACCESS_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (default (printf "%s-secrets" .Release.Name) .Values.secret.name) .Values.secret.existingSecret }}
+                  key: ALIYUN_OSS_ACCESS_KEY_SECRET
+            - name: DEMO_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (default (printf "%s-secrets" .Release.Name) .Values.secret.name) .Values.secret.existingSecret }}
+                  key: DEMO_TOKEN

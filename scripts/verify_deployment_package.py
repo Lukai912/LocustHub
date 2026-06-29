@@ -79,6 +79,8 @@ def verify_helm() -> None:
         [
             "api:",
             "admin:",
+            "ingress:",
+            "secret:",
             "repository: locusthub-api",
             "repository: locusthub-admin",
             "ALIYUN_OSS_BUCKET",
@@ -87,13 +89,18 @@ def verify_helm() -> None:
     )
     require_contains(
         "deploy/helm/locusthub/templates/deployment.yaml",
-        ["readinessProbe:", "livenessProbe:", ".Values.api.image.repository"],
+        ["readinessProbe:", "livenessProbe:", ".Values.api.image.repository", "secretKeyRef:"],
     )
     require_contains(
         "deploy/helm/locusthub/templates/admin-deployment.yaml",
         ["locusthub-admin", "containerPort: 80", ".Values.admin.image.repository"],
     )
     require_contains("deploy/helm/locusthub/templates/admin-service.yaml", ["targetPort: 80", "locusthub-admin"])
+    require_contains("deploy/helm/locusthub/templates/secret.yaml", ["kind: Secret", "stringData:", "DEMO_TOKEN:"])
+    require_contains(
+        "deploy/helm/locusthub/templates/ingress.yaml",
+        ["kind: Ingress", "locusthub-api", "locusthub-admin", "secretName:"],
+    )
 
 
 def main() -> int:
@@ -110,6 +117,7 @@ def main() -> int:
     print("- docker-compose.yml includes mysql, api, and admin services")
     print("- frontend/Dockerfile builds and serves the Vben-style admin console")
     print("- deploy/helm/locusthub includes API and admin workloads")
+    print("- deploy/helm/locusthub includes ingress, TLS, and Secret-backed settings")
     print("- .env.example documents required local, OSS, and Kubernetes runtime keys")
     return 0
 
@@ -120,4 +128,3 @@ if __name__ == "__main__":
     except DeploymentPackageError as exc:
         print(f"deployment package check failed: {exc}")
         raise SystemExit(1)
-

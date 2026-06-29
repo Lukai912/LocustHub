@@ -334,3 +334,37 @@ scripts/test_local.sh -> passed, includes npm install/build, 24 pytest cases, de
 
 - 本阶段补齐部署交付包，不直接执行真实 Docker/Helm 集群部署。
 - 生产 Secret 管理、Ingress、TLS 和云厂商网关留给后续阶段。
+
+## 14. 阶段 7 Ingress/TLS 与 Secret-ready Helm 验收
+
+阶段 7 新增范围：
+
+- Helm Ingress 模板：`deploy/helm/locusthub/templates/ingress.yaml`
+- Helm Secret 模板：`deploy/helm/locusthub/templates/secret.yaml`
+- API Deployment 敏感配置改为 `secretKeyRef`
+- Helm values 新增 `ingress`、`secret` 配置块
+- 部署包验证脚本覆盖 Ingress/TLS/Secret 检查
+- 阶段 7 文档：`docs/stage7-ingress-secrets.md`
+
+阶段 7 自动化测试覆盖：
+
+- values 必须提供 Ingress/TLS 和 Secret 配置入口。
+- API Deployment 必须通过 Secret 注入 MySQL 密码、OSS AK/SK 和 `DEMO_TOKEN`。
+- Secret 模板支持 demo Secret 创建，也支持使用已有 Secret。
+- Ingress 模板必须将 `/api` 路由到 API，将 `/` 路由到 Admin，并支持 TLS Secret。
+
+阶段 7 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage6_deployment_package.py tests/test_stage7_ingress_secrets.py -q -> 10 passed in 0.03s
+python3 scripts/verify_deployment_package.py -> LocustHub deployment package ready, includes ingress, TLS, and Secret-backed settings
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 472ms
+cd backend && DATABASE_PATH=/private/tmp/locusthub-stage7-full.db ARTIFACT_ROOT=/private/tmp/locusthub-stage7-full-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 28 passed in 0.70s
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py scripts/verify_deployment_package.py -> passed
+```
+
+阶段 7 验收边界：
+
+- 本阶段不创建证书签发资源，不绑定具体 Ingress Controller。
+- 正式认证与租户权限模型仍在后续阶段替换 MVP demo token。
