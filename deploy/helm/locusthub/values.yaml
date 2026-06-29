@@ -1,11 +1,24 @@
-image:
-  repository: locusthub-api
-  tag: latest
-  pullPolicy: IfNotPresent
+api:
+  image:
+    repository: locusthub-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
+
+admin:
+  image:
+    repository: locusthub-admin
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
 
 service:
   type: ClusterIP
   port: 8000
+
+adminService:
+  type: ClusterIP
+  port: 80
 
 serviceAccount:
   create: true
@@ -33,4 +46,6 @@ env:
   ALIYUN_OSS_ACCESS_KEY_ID: ""
   ALIYUN_OSS_ACCESS_KEY_SECRET: ""
   ALIYUN_OSS_SIGNED_URL_EXPIRE_SECONDS: "900"
+  PUBLIC_API_BASE_URL: https://locusthub.example.com/api/v1
+  PUBLIC_ADMIN_BASE_URL: https://locusthub.example.com
   DEMO_TOKEN: dev-token

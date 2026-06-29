@@ -1,17 +1,19 @@
 services:
   mysql:
     image: mysql:8.4
+    env_file:
+      - .env.example
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: locusthub
-      MYSQL_USER: locusthub
-      MYSQL_PASSWORD: locusthub
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-locusthub}
+      MYSQL_USER: ${MYSQL_USER:-locusthub}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-locusthub}
     ports:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ulocusthub", "-plocusthub"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -20,16 +22,20 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    env_file:
+      - .env.example
     environment:
       DATABASE_BACKEND: mysql
       MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_USER: locusthub
-      MYSQL_PASSWORD: locusthub
-      MYSQL_DATABASE: locusthub
-      ARTIFACT_STORAGE_PROVIDER: local
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_USER: ${MYSQL_USER:-locusthub}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-locusthub}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-locusthub}
+      ARTIFACT_STORAGE_PROVIDER: ${ARTIFACT_STORAGE_PROVIDER:-local}
       ARTIFACT_ROOT: /app/artifacts
-      DEMO_TOKEN: dev-token
+      PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://127.0.0.1:8000/api/v1}
+      PUBLIC_ADMIN_BASE_URL: ${PUBLIC_ADMIN_BASE_URL:-http://127.0.0.1:8080}
+      DEMO_TOKEN: ${DEMO_TOKEN:-dev-token}
     ports:
       - "8000:8000"
     volumes:
@@ -37,6 +43,29 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  admin:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+        VITE_DEMO_TOKEN: ${DEMO_TOKEN:-dev-token}
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
 
 volumes:
   mysql-data:

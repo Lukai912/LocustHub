@@ -297,3 +297,40 @@ cd frontend && npm run build -> passed, built in 487ms
 - 超额审批仍按拒绝/待审批简化处理，后续阶段可扩展为正式审批流。
 - NetworkPolicy 尚未按 DNS 快照收敛到具体目标 IP/CIDR。
 - DNS 快照为同步 admission 记录，后续可扩展为异步复核。
+
+## 13. 阶段 6 部署交付包验收
+
+阶段 6 新增范围：
+
+- 管理后台容器：`frontend/Dockerfile`
+- 管理后台 Nginx 配置：`frontend/nginx.conf`
+- Docker Compose 全栈服务：MySQL、API、Admin
+- Helm API/Admin 镜像配置和 Admin workload
+- 部署包验证脚本：`scripts/verify_deployment_package.py`
+- 阶段 6 文档：`docs/stage6-deployment-package.md`
+
+阶段 6 自动化测试覆盖：
+
+- Compose 必须包含 `mysql`、`api`、`admin` 服务。
+- Admin 镜像必须构建 Vite bundle 并通过 Nginx 代理 `/api/`。
+- `.env.example` 必须覆盖本地、MySQL、OSS、Kubernetes、Locust、公开 URL 配置。
+- Helm chart 必须包含 API/Admin workload 和健康检查。
+- 部署包验证脚本必须输出 ready 结论。
+
+阶段 6 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage6_deployment_package.py -q -> 6 passed in 0.03s
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 514ms
+cd backend && DATABASE_PATH=/private/tmp/locusthub-stage6-full.db ARTIFACT_ROOT=/private/tmp/locusthub-stage6-full-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 24 passed in 0.64s
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py scripts/verify_deployment_package.py -> passed
+python3 scripts/verify_deployment_package.py -> LocustHub deployment package ready
+git diff --check -> passed
+scripts/test_local.sh -> passed, includes npm install/build, 24 pytest cases, deployment verifier, compileall
+```
+
+阶段 6 验收边界：
+
+- 本阶段补齐部署交付包，不直接执行真实 Docker/Helm 集群部署。
+- 生产 Secret 管理、Ingress、TLS 和云厂商网关留给后续阶段。

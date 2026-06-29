@@ -23,3 +23,10 @@ VITE_DEMO_TOKEN=dev-token
 `npm run build` uses `scripts/build.mjs` to call the Vite API directly. The
 local Node 18.8 environment can hang in the Vite CLI minifier path, so Stage 4
 keeps minification disabled and leaves production compression to Nginx/CDN.
+
+## Container
+
+Stage 6 adds `frontend/Dockerfile` and `frontend/nginx.conf` for the deployable
+admin console image. The image builds the static Vite bundle and serves it with
+Nginx. In Docker Compose, `/api/` is proxied to the `api` service so the browser
+can call `/api/v1` without hard-coding an internal container hostname.
