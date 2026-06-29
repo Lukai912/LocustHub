@@ -242,7 +242,7 @@ def create_router(deps: dict) -> APIRouter:
 
     @router.post("/ci/performance-runs", tags=["CI Baselines"], summary="Create CI performance baseline run")
     def create_ci_run(payload: BaselineRunCreate, user: dict = Depends(current_user)) -> dict:
-        """Create and start a CI-triggered performance run, then evaluate MVP thresholds."""
+        """Create and start a CI-triggered performance run, then evaluate request thresholds."""
         ensure_tenant_access(payload.tenant_id, user)
         run = repo.create_run_from_plan(
             {
@@ -253,11 +253,22 @@ def create_router(deps: dict) -> APIRouter:
             }
         )
         started = runner.start(run["id"])
+        if started["status"] == "RUNNING":
+            # CI baselines need enough samples to evaluate non-instant metrics
+            # such as fail ratio, while manual runs can keep the faster start.
+            runner.collect(run["id"], samples=2)
         violations = []
         stats = repo.run_snapshots(run["id"])
         latest = stats[-1] if stats else {}
-        if latest.get("current_p95", 0) > 500:
-            violations.append({"metric": "p95", "operator": "<=", "expected": 500, "actual": latest["current_p95"]})
+        p95 = latest.get("current_p95", 0)
+        fail_ratio = latest.get("fail_ratio", 0)
+        total_rps = latest.get("total_rps", 0)
+        if p95 > payload.max_p95_ms:
+            violations.append({"metric": "p95", "operator": "<=", "expected": payload.max_p95_ms, "actual": p95})
+        if fail_ratio > payload.max_fail_ratio:
+            violations.append({"metric": "fail_ratio", "operator": "<=", "expected": payload.max_fail_ratio, "actual": fail_ratio})
+        if payload.min_total_rps is not None and total_rps < payload.min_total_rps:
+            violations.append({"metric": "total_rps", "operator": ">=", "expected": payload.min_total_rps, "actual": total_rps})
         baseline = repo.insert_baseline_run(
             {
                 "tenant_id": payload.tenant_id,
@@ -274,5 +285,26 @@ def create_router(deps: dict) -> APIRouter:
             }
         )
         return {"test_run_id": run["id"], "baseline_run_id": baseline["id"], "status": started["status"], "conclusion": baseline["conclusion"], "violations": violations}
+
+    @router.get("/ci/performance-runs/{test_run_id}/result", tags=["CI Baselines"], summary="Get CI performance baseline result")
+    def ci_run_result(test_run_id: str, user: dict = Depends(current_user)) -> dict:
+        """Return persisted CI baseline conclusion and threshold violations for a test run."""
+        run = require_scoped_record("test_runs", test_run_id, user, "Test run not found")
+        baseline = repo.get_baseline_by_run(test_run_id)
+        if not baseline:
+            raise HTTPException(status_code=404, detail="Baseline result not found")
+        return {
+            "test_run_id": run["id"],
+            "baseline_run_id": baseline["id"],
+            "status": baseline["status"],
+            "conclusion": baseline["conclusion"],
+            "violations": baseline.get("violations", []),
+            "ci_provider": baseline["ci_provider"],
+            "pipeline_id": baseline["pipeline_id"],
+            "job_id": baseline["job_id"],
+            "commit_sha": baseline["commit_sha"],
+            "branch": baseline["branch"],
+            "created_at": baseline["created_at"],
+        }
 
     return router

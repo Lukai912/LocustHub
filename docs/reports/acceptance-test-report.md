@@ -405,3 +405,38 @@ node frontend/tests/structure.test.mjs -> passed
 - 本阶段不新增用户管理后台。
 - 前端仍保留 demo token fallback，正式登录页和 token 存储策略进入后续阶段。
 - 密码 hash 使用标准库实现，后续生产化可替换为 bcrypt/OIDC/企业 IdP。
+
+## 16. 阶段 9 CI 性能基线流水线验收
+
+阶段 9 新增范围：
+
+- CI baseline 请求阈值：`max_p95_ms`、`max_fail_ratio`、`min_total_rps`
+- CI baseline 结果查询：`GET /api/v1/ci/performance-runs/{test_run_id}/result`
+- CI CLI：`scripts/run_ci_baseline.py`
+- baseline violation JSON 留档
+- 阶段 9 文档：`docs/stage9-ci-baseline-pipeline.md`
+
+阶段 9 自动化测试覆盖：
+
+- 请求级严格阈值会生成 `p95`、`fail_ratio`、`total_rps` violation。
+- 结果接口返回持久化 baseline run 和 violations。
+- 结果接口遵守 Stage8 租户范围。
+- CLI 在 passed 结果下退出 `0` 并写 JSON artifact。
+- CLI 在 failed 结果下退出 `1` 并写 JSON artifact。
+
+阶段 9 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage9_ci_baseline_pipeline.py -q -> 4 passed in 0.51s
+cd backend && DATABASE_PATH=/private/tmp/locusthub-stage9-full.db ARTIFACT_ROOT=/private/tmp/locusthub-stage9-full-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 37 passed in 1.25s
+cd frontend && npm run build -> passed, built in 464ms
+python3 scripts/verify_deployment_package.py -> LocustHub deployment package ready
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py scripts/verify_deployment_package.py scripts/run_ci_baseline.py -> passed
+node frontend/tests/structure.test.mjs -> passed
+git diff --check -> passed
+```
+
+阶段 9 验收边界：
+
+- 本阶段不新增 baseline profile 管理 API。
+- CI 脚本为同步调用，后续可扩展为异步轮询长任务。

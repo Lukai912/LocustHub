@@ -99,4 +99,7 @@ class BaselineRunCreate(BaseModel):
     job_id: str = Field(default="perf-test", description="External CI job id.")
     commit_sha: str = Field(default="local", description="Commit SHA under test.")
     branch: str = Field(default="main", description="Source branch under test.")
+    max_p95_ms: float = Field(default=500, ge=0, description="Maximum allowed p95 response time in milliseconds.")
+    max_fail_ratio: float = Field(default=0.05, ge=0, description="Maximum allowed failure ratio, from 0 to 1.")
+    min_total_rps: float | None = Field(default=None, ge=0, description="Optional minimum required total requests per second.")
     variables: dict[str, Any] = Field(default_factory=dict, description="Additional CI variables captured for audit.")

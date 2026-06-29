@@ -907,6 +907,13 @@ class SQLiteRepository:
             )
         return record
 
+    def get_baseline_by_run(self, test_run_id: str) -> dict | None:
+        with self.db.connect() as conn:
+            record = row_to_dict(conn.execute("SELECT * FROM baseline_runs WHERE test_run_id = ?", (test_run_id,)).fetchone())
+        if record and isinstance(record.get("violations_json"), str):
+            record["violations"] = json.loads(record["violations_json"])
+        return record
+
     def audit(self, tenant_id: str, actor: str, action: str, resource_type: str, resource_id: str, detail: dict) -> None:
         with self.db.connect() as conn:
             conn.execute(
