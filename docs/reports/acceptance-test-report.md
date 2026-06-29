@@ -219,3 +219,41 @@ helm template locusthub deploy/helm/locusthub -> not executed, helm is not insta
 - 生产环境启用方式见 `docs/stage3-kubernetes-locust.md`。
 
 这些限制不影响阶段 3 本地验收；真实集群联调和更严格的 DNS/IP egress 治理将在后续阶段继续推进。
+
+## 11. 阶段 4 Vben 风格管理后台验收
+
+阶段 4 新增范围：
+
+- Vue 3 + Vite + TypeScript 前端工程：`frontend/package.json`
+- Vben 风格后台布局：`frontend/src/App.vue`
+- 前端 API client：`frontend/src/api/client.ts`
+- 前端业务类型：`frontend/src/types.ts`
+- 前端构建脚本：`frontend/scripts/build.mjs`
+- 前端结构测试：`frontend/tests/structure.test.mjs`
+- 阶段 4 文档：`docs/stage4-vben-admin-console.md`
+
+阶段 4 自动化测试覆盖：
+
+- 前端工程必需文件存在。
+- 前端 npm scripts 包含 dev/build/test:structure。
+- API client 暴露 TestRun 启动、采集、停止和 Locust stats 查询函数。
+- 管理后台包含 Dashboard、Tenants、Projects、Scripts、Test Plans、Test Runs、Governance、Reports 模块。
+- Test Runs 详情包含 Locust UI 风格 tabs：Statistics、Failures、Workers、Download。
+
+阶段 4 测试结果：
+
+```text
+npm install --registry=https://registry.npmjs.org/ -> installed 48 packages
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 456ms
+cd backend && rm -rf data artifacts && PYTHONPATH=. ../.venv/bin/pytest -q -> 14 passed in 0.59s
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py -> passed
+git diff --check -> passed
+npm audit --registry=https://registry.npmjs.org/ --omit=dev -> not executed, network approval rejected by current usage limit
+```
+
+阶段 4 验收边界：
+
+- 本阶段未直接引入完整 `vue-vben-admin` monorepo，而是实现 Vben 风格的轻量前端工程。
+- 认证仍使用 MVP demo token。
+- 当前构建关闭 Vite minify；生产压缩可由 Nginx/CDN 或后续 Node 升级后处理。

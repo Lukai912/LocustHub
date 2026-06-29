@@ -9,6 +9,7 @@ The first archived specification is available at:
 - [本地调试说明](docs/local-debug.md)
 - [阶段 2 基础设施适配](docs/stage2-infrastructure.md)
 - [阶段 3 Kubernetes + 真实 Locust 运行时](docs/stage3-kubernetes-locust.md)
+- [阶段 4 Vben 风格管理后台](docs/stage4-vben-admin-console.md)
 - [开发注释与 Swagger 规范](docs/development-guidelines.md)
 - [MVP 验收及测试报告](docs/reports/acceptance-test-report.md)
 

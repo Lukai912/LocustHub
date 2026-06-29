@@ -1,0 +1,20 @@
+{
+  "name": "locusthub-admin",
+  "private": true,
+  "version": "0.4.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vue-tsc --noEmit --pretty false && node scripts/build.mjs",
+    "test:structure": "node tests/structure.test.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-vue": "^5.1.4",
+    "vite": "^5.4.11",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vue-tsc": "^2.2.0"
+  }
+}
