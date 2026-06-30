@@ -74,6 +74,25 @@ export interface TestRun {
   failure_reason?: string | null;
 }
 
+export interface RunEvent {
+  id: string;
+  test_run_id: string;
+  status: string;
+  message: string;
+  created_at: string;
+}
+
+export interface RunDiagnostics {
+  run: TestRun;
+  lane?: Record<string, unknown> | null;
+  latest_snapshot?: Record<string, unknown> | null;
+  latest_errors: Array<Record<string, unknown>>;
+  workers: LocustWorker[];
+  report?: ReportSummary | null;
+  events: RunEvent[];
+  recommendations: string[];
+}
+
 export interface TargetWhitelist {
   id: string;
   tenant_id: string;

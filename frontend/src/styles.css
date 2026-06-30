@@ -465,7 +465,8 @@ tbody tr.selected {
   gap: 12px;
 }
 
-.logs-panel h3 {
+.logs-panel h3,
+.diagnostics-panel h3 {
   margin: 0 0 8px;
   font-size: 13px;
 }
@@ -482,6 +483,26 @@ tbody tr.selected {
   background: #172033;
   font-size: 12px;
   white-space: pre-wrap;
+}
+
+.diagnostics-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+  gap: 12px;
+}
+
+.diagnostics-panel section {
+  min-width: 0;
+}
+
+.diagnostics-panel ul {
+  margin: 0;
+  padding: 12px 12px 12px 28px;
+  border: 1px solid #e4e9f1;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #344256;
+  font-size: 12px;
 }
 
 @media (max-width: 980px) {
@@ -515,7 +536,8 @@ tbody tr.selected {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .logs-panel {
+  .logs-panel,
+  .diagnostics-panel {
     grid-template-columns: 1fr;
   }
 }

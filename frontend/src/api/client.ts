@@ -5,6 +5,7 @@ import type {
   Project,
   QuotaUsageSnapshot,
   ReportSummary,
+  RunDiagnostics,
   ScriptValidationResult,
   ScriptVersion,
   TargetWhitelist,
@@ -120,6 +121,14 @@ export async function collectRun(runId: string): Promise<{ samples: unknown[] }>
 
 export async function stopRun(runId: string): Promise<TestRun> {
   return request<TestRun>(`/test-runs/${runId}/stop`, { method: 'POST' });
+}
+
+export async function rerunTestRun(runId: string): Promise<TestRun> {
+  return request<TestRun>(`/test-runs/${runId}/rerun`, { method: 'POST' });
+}
+
+export async function getRunDiagnostics(runId: string): Promise<RunDiagnostics> {
+  return request<RunDiagnostics>(`/test-runs/${runId}/diagnostics`);
 }
 
 export async function getLocustStats(runId: string): Promise<LocustStatsResponse> {

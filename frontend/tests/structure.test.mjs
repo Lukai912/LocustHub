@@ -22,7 +22,7 @@ assert.equal(pkg.scripts.dev, 'vite --host 127.0.0.1');
 assert.equal(pkg.scripts.build, 'vue-tsc --noEmit --pretty false && node scripts/build.mjs');
 
 const client = readFileSync(join(root, 'src/api/client.ts'), 'utf8');
-for (const api of ['listTestRuns', 'startRun', 'collectRun', 'stopRun', 'getLocustStats', 'listApprovalRequests', 'listDnsSnapshots', 'listQuotaUsageSnapshots', 'validateLocustfile', 'createScriptVersion', 'createTestPlan', 'cloneTestPlan']) {
+for (const api of ['listTestRuns', 'startRun', 'collectRun', 'stopRun', 'getLocustStats', 'listApprovalRequests', 'listDnsSnapshots', 'listQuotaUsageSnapshots', 'validateLocustfile', 'createScriptVersion', 'createTestPlan', 'cloneTestPlan', 'getRunDiagnostics', 'rerunTestRun']) {
   assert.match(client, new RegExp(`export async function ${api}`), `${api} must be exported`);
 }
 
@@ -48,4 +48,7 @@ for (const label of ['RPS', 'Failures/s', 'Response Times', 'User Count', 'Maste
 }
 for (const label of ['Validate Locustfile', 'Create Script Version', 'Create Test Plan', 'Clone Plan']) {
   assert.match(app, new RegExp(label), `${label} script and plan management label must exist`);
+}
+for (const label of ['Diagnostics', 'Rerun', 'Recommendations', 'Lifecycle Events']) {
+  assert.match(app, new RegExp(label), `${label} run diagnostics label must exist`);
 }

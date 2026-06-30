@@ -18,6 +18,7 @@ The first archived specification is available at:
 - [阶段 11 前后端不分离交付](docs/stage11-integrated-frontend-backend.md)
 - [阶段 12 Locust WebUI 与报告下载增强](docs/stage12-locust-webui-report-downloads.md)
 - [阶段 13 脚本与计划管理增强](docs/stage13-script-plan-management.md)
+- [阶段 14 任务诊断与重跑](docs/stage14-run-diagnostics-rerun.md)
 - [完整部署与使用 Runbook](docs/full-deployment-runbook.md)
 - [开发注释与 Swagger 规范](docs/development-guidelines.md)
 - [MVP 验收及测试报告](docs/reports/acceptance-test-report.md)

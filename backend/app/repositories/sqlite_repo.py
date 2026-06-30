@@ -193,6 +193,17 @@ class SQLiteRepository:
             )
             """,
             """
+            CREATE TABLE IF NOT EXISTS test_run_events (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                test_run_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """,
+            """
             CREATE TABLE IF NOT EXISTS locust_run_snapshots (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
@@ -627,6 +638,7 @@ class SQLiteRepository:
                     item["ended_at"],
                 ),
             )
+            self._insert_run_event(conn, item, "CREATED", "Run created from test plan")
         return item
 
     def update_run_status(self, run_id: str, status: str, failure_reason: str | None = None) -> dict | None:
@@ -640,7 +652,22 @@ class SQLiteRepository:
                 conn.execute("UPDATE test_runs SET status = ?, ended_at = ?, failure_reason = ? WHERE id = ?", (status, ended_at, failure_reason, run_id))
             else:
                 conn.execute("UPDATE test_runs SET status = ?, failure_reason = COALESCE(?, failure_reason) WHERE id = ?", (status, failure_reason, run_id))
-            return row_to_dict(conn.execute("SELECT * FROM test_runs WHERE id = ?", (run_id,)).fetchone())
+            run = row_to_dict(conn.execute("SELECT * FROM test_runs WHERE id = ?", (run_id,)).fetchone())
+            if run:
+                self._insert_run_event(conn, run, status, failure_reason or f"Run moved to {status}")
+            return run
+
+    def _insert_run_event(self, conn, run: dict, status: str, message: str) -> None:
+        # Keep run event writes close to status mutations so diagnostics can
+        # explain what happened even when later runtime cleanup has completed.
+        conn.execute(
+            "INSERT INTO test_run_events VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (new_id("event"), run["tenant_id"], run["project_id"], run["id"], status, message, now_iso()),
+        )
+
+    def run_events(self, run_id: str) -> list[dict]:
+        with self.db.connect() as conn:
+            return rows_to_dicts(conn.execute("SELECT * FROM test_run_events WHERE test_run_id = ? ORDER BY created_at", (run_id,)).fetchall())
 
     def count_running_runs(self, tenant_id: str) -> int:
         with self.db.connect() as conn:

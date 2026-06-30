@@ -194,6 +194,48 @@ def create_router(deps: dict) -> APIRouter:
         """Return a single test run by id."""
         return require_scoped_record("test_runs", run_id, user, "Test run not found")
 
+    @router.get("/test-runs/{run_id}/diagnostics", tags=["Test Runs"], summary="Get run diagnostics")
+    def run_diagnostics(run_id: str, user: dict = Depends(current_user)) -> dict:
+        """Return lifecycle events, runtime lane, latest metrics, and operator hints."""
+        run = require_scoped_record("test_runs", run_id, user, "Test run not found")
+        snapshots = repo.run_snapshots(run_id)
+        latest_snapshot = snapshots[-1] if snapshots else None
+        errors = repo.latest_errors(run_id)
+        lane = repo.get_lane_by_run(run_id)
+        report = repo.get_report(run_id)
+        recommendations = []
+        if not lane and run["status"] in {"PROVISIONING", "RUNNING"}:
+            recommendations.append("No runtime lane is recorded; check Kubernetes namespace and service account creation.")
+        if errors:
+            recommendations.append("Failures are present; inspect the Failures and Logs tabs before accepting the result.")
+        if run["status"] == "COMPLETED" and not report:
+            recommendations.append("Run completed without an archived report; retry stop/archive or inspect artifact storage.")
+        if not recommendations:
+            recommendations.append("Run telemetry is available; continue watching charts or archive the report when finished.")
+        return {
+            "run": run,
+            "lane": lane,
+            "latest_snapshot": latest_snapshot,
+            "latest_errors": errors,
+            "workers": repo.latest_workers(run_id),
+            "report": report,
+            "events": repo.run_events(run_id),
+            "recommendations": recommendations,
+        }
+
+    @router.post("/test-runs/{run_id}/rerun", tags=["Test Runs"], summary="Rerun test run")
+    def rerun(run_id: str, user: dict = Depends(current_user)) -> dict:
+        """Create a fresh run from the same test plan as an existing run."""
+        run = require_scoped_record("test_runs", run_id, user, "Test run not found")
+        return repo.create_run_from_plan(
+            {
+                "tenant_id": run["tenant_id"],
+                "project_id": run["project_id"],
+                "test_plan_id": run["test_plan_id"],
+                "source": "manual",
+            }
+        )
+
     @router.post("/test-runs/{run_id}/start", tags=["Test Runs"], summary="Start test run")
     def start_run(run_id: str, user: dict = Depends(current_user)) -> dict:
         """Validate admission, create the runtime lane, and begin collecting metrics."""

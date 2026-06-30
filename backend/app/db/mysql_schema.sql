@@ -169,6 +169,17 @@ CREATE TABLE IF NOT EXISTS test_run_lanes (
     INDEX idx_lanes_run (test_run_id)
 );
 
+CREATE TABLE IF NOT EXISTS test_run_events (
+    id VARCHAR(64) PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
+    test_run_id VARCHAR(64) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    message TEXT NOT NULL,
+    created_at VARCHAR(64) NOT NULL,
+    INDEX idx_run_events_run (test_run_id, created_at)
+);
+
 CREATE TABLE IF NOT EXISTS locust_run_snapshots (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,

@@ -575,3 +575,34 @@ cd frontend && npm run build -> passed, built in 574ms
 
 - Locustfile 校验为静态检查，不安装依赖、不执行脚本。
 - 复杂脚本调试和在线编辑器体验继续留给后续 UI 深化。
+
+## 21. 阶段 14 任务诊断与重跑验收
+
+阶段 14 新增范围：
+
+- 新增 `test_run_events` 生命周期事件表。
+- 任务创建和状态变化时记录事件。
+- `GET /api/v1/test-runs/{run_id}/diagnostics` 诊断接口。
+- `POST /api/v1/test-runs/{run_id}/rerun` 重跑接口。
+- Test Runs 页面新增 `Rerun` 和 `Diagnostics` tab。
+- 阶段 14 文档：`docs/stage14-run-diagnostics-rerun.md`
+
+阶段 14 自动化测试覆盖：
+
+- diagnostics 返回 run、lane、latest snapshot、events 和 recommendations。
+- events 包含 `CREATED` 和 `RUNNING`。
+- rerun 基于原计划创建新的 `CREATED` run。
+- 前端结构包含 Diagnostics、Rerun、Recommendations、Lifecycle Events。
+
+阶段 14 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage14_run_diagnostics.py -q -> 2 passed in 0.61s
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 532ms
+```
+
+阶段 14 验收边界：
+
+- diagnostics 先提供控制面可解释性，不直接拉取 Kubernetes pod events。
+- rerun 创建新任务，不自动启动，避免误触发压测流量。

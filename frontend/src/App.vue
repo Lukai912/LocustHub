@@ -6,6 +6,7 @@ import {
   createScriptVersion,
   createTestPlan,
   cloneTestPlan,
+  getRunDiagnostics,
   getLocustStats,
   getReport,
   listApprovalRequests,
@@ -20,6 +21,7 @@ import {
   listTestRuns,
   startRun,
   stopRun,
+  rerunTestRun,
   validateLocustfile,
 } from './api/client';
 import type {
@@ -29,6 +31,7 @@ import type {
   Project,
   QuotaUsageSnapshot,
   ReportSummary,
+  RunDiagnostics,
   ScriptValidationResult,
   ScriptVersion,
   TargetWhitelist,
@@ -39,7 +42,7 @@ import type {
 } from './types';
 
 type ViewKey = 'dashboard' | 'tenants' | 'projects' | 'scripts' | 'plans' | 'runs' | 'governance' | 'reports';
-type LocustTab = 'Statistics' | 'Charts' | 'Failures' | 'Workers' | 'Logs' | 'Download Data';
+type LocustTab = 'Statistics' | 'Charts' | 'Failures' | 'Workers' | 'Logs' | 'Diagnostics' | 'Download Data';
 
 const navigation: Array<{ key: ViewKey; label: string; cn: string }> = [
   { key: 'dashboard', label: 'Dashboard', cn: '仪表盘' },
@@ -51,7 +54,7 @@ const navigation: Array<{ key: ViewKey; label: string; cn: string }> = [
   { key: 'governance', label: 'Governance', cn: '治理' },
   { key: 'reports', label: 'Reports', cn: '报告' },
 ];
-const locustTabs: LocustTab[] = ['Statistics', 'Charts', 'Failures', 'Workers', 'Logs', 'Download Data'];
+const locustTabs: LocustTab[] = ['Statistics', 'Charts', 'Failures', 'Workers', 'Logs', 'Diagnostics', 'Download Data'];
 const expectedReportArtifacts = ['HTML Report', 'Requests CSV', 'Failures CSV', 'Exceptions CSV', 'History CSV', 'Master Log'];
 
 const activeView = ref<ViewKey>('dashboard');
@@ -72,6 +75,7 @@ const dnsSnapshots = ref<DnsResolutionSnapshot[]>([]);
 const quotaUsageSnapshots = ref<QuotaUsageSnapshot[]>([]);
 const stats = ref<LocustStatsResponse | null>(null);
 const report = ref<ReportSummary | null>(null);
+const diagnostics = ref<RunDiagnostics | null>(null);
 const validation = ref<ScriptValidationResult | null>(null);
 const defaultLocustfile = "from locust import HttpUser, task\n\nclass DemoUser(HttpUser):\n    @task\n    def index(self):\n        self.client.get('/todos/1')\n";
 const scriptForm = ref({
@@ -146,6 +150,11 @@ async function refreshRunDetail(runId: string) {
   } catch {
     report.value = null;
   }
+  try {
+    diagnostics.value = await getRunDiagnostics(runId);
+  } catch {
+    diagnostics.value = null;
+  }
 }
 
 async function createAndStartDemo() {
@@ -176,6 +185,16 @@ async function stopActiveRun() {
     runs.value = await listTestRuns();
     selectedRunId.value = stopped.id;
     await refreshRunDetail(stopped.id);
+  });
+}
+
+async function rerunActiveRun() {
+  if (!activeRun.value) return;
+  await withLoading(async () => {
+    const created = await rerunTestRun(activeRun.value.id);
+    runs.value = await listTestRuns();
+    selectedRunId.value = created.id;
+    await refreshRunDetail(created.id);
   });
 }
 
@@ -406,6 +425,7 @@ onMounted(refreshAll);
             <div class="button-row">
               <button type="button" :disabled="!activeRun || loading" @click="collectActiveRun">Collect</button>
               <button type="button" :disabled="!activeRun || loading" @click="stopActiveRun">Stop</button>
+              <button type="button" :disabled="!activeRun || loading" @click="rerunActiveRun">Rerun</button>
             </div>
           </div>
           <table>
@@ -472,6 +492,23 @@ onMounted(refreshAll);
               <h3>Master Log</h3>
               <pre>{{ report?.log_preview || 'Report logs are available after archival.' }}</pre>
             </div>
+          </div>
+          <div v-if="activeTab === 'Diagnostics'" class="diagnostics-panel">
+            <section>
+              <h3>Recommendations</h3>
+              <ul>
+                <li v-for="item in diagnostics?.recommendations ?? []" :key="item">{{ item }}</li>
+              </ul>
+            </section>
+            <section>
+              <h3>Lifecycle Events</h3>
+              <table>
+                <thead><tr><th>Status</th><th>Message</th><th>Time</th></tr></thead>
+                <tbody>
+                  <tr v-for="event in diagnostics?.events ?? []" :key="event.id"><td>{{ event.status }}</td><td>{{ event.message }}</td><td>{{ event.created_at }}</td></tr>
+                </tbody>
+              </table>
+            </section>
           </div>
           <div v-if="activeTab === 'Download Data'" class="download-panel">
             <span>Report Status</span>
