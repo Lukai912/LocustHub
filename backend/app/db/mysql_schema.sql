@@ -263,6 +263,7 @@ CREATE TABLE IF NOT EXISTS locust_report_summaries (
     html_artifact_id VARCHAR(64),
     requests_csv_artifact_id VARCHAR(64),
     failures_csv_artifact_id VARCHAR(64),
+    exceptions_csv_artifact_id VARCHAR(64),
     history_csv_artifact_id VARCHAR(64),
     logs_artifact_id VARCHAR(64),
     total_requests INT NOT NULL,

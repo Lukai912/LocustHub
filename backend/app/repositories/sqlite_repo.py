@@ -284,6 +284,7 @@ class SQLiteRepository:
                 html_artifact_id TEXT,
                 requests_csv_artifact_id TEXT,
                 failures_csv_artifact_id TEXT,
+                exceptions_csv_artifact_id TEXT,
                 history_csv_artifact_id TEXT,
                 logs_artifact_id TEXT,
                 total_requests INTEGER NOT NULL,
@@ -332,6 +333,9 @@ class SQLiteRepository:
             columns = [row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
             if "password_hash" not in columns:
                 conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+            report_columns = [row[1] for row in conn.execute("PRAGMA table_info(locust_report_summaries)").fetchall()]
+            if "exceptions_csv_artifact_id" not in report_columns:
+                conn.execute("ALTER TABLE locust_report_summaries ADD COLUMN exceptions_csv_artifact_id TEXT")
 
     def seed_demo(self, token: str) -> None:
         with self.db.connect() as conn:
@@ -831,6 +835,13 @@ class SQLiteRepository:
                 return []
             return rows_to_dicts(conn.execute("SELECT * FROM locust_workers WHERE run_id = ? AND sample_time = ?", (run_id, row["sample_time"])).fetchall())
 
+    def latest_errors(self, run_id: str) -> list[dict]:
+        with self.db.connect() as conn:
+            row = conn.execute("SELECT MAX(sample_time) AS sample_time FROM locust_errors WHERE run_id = ?", (run_id,)).fetchone()
+            if not row or not row["sample_time"]:
+                return []
+            return rows_to_dicts(conn.execute("SELECT * FROM locust_errors WHERE run_id = ? AND sample_time = ?", (run_id, row["sample_time"])).fetchall())
+
     def insert_artifact(self, item: dict) -> dict:
         record = {"id": new_id("artifact"), "created_at": now_iso(), **item}
         with self.db.connect() as conn:
@@ -852,11 +863,37 @@ class SQLiteRepository:
             )
         return record
 
+    def get_artifact(self, artifact_id: str) -> dict | None:
+        with self.db.connect() as conn:
+            return row_to_dict(conn.execute("SELECT * FROM artifact_objects WHERE id = ?", (artifact_id,)).fetchone())
+
     def insert_report_summary(self, item: dict) -> dict:
         record = {"id": new_id("report"), "archived_at": now_iso(), **item}
         with self.db.connect() as conn:
             conn.execute(
-                "INSERT OR REPLACE INTO locust_report_summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                """
+                INSERT OR REPLACE INTO locust_report_summaries (
+                    id,
+                    tenant_id,
+                    project_id,
+                    run_id,
+                    report_status,
+                    html_artifact_id,
+                    requests_csv_artifact_id,
+                    failures_csv_artifact_id,
+                    exceptions_csv_artifact_id,
+                    history_csv_artifact_id,
+                    logs_artifact_id,
+                    total_requests,
+                    total_failures,
+                    avg_response_time,
+                    p95_response_time,
+                    p99_response_time,
+                    total_rps,
+                    fail_ratio,
+                    archived_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
                 (
                     record["id"],
                     record["tenant_id"],
@@ -866,6 +903,7 @@ class SQLiteRepository:
                     record.get("html_artifact_id"),
                     record.get("requests_csv_artifact_id"),
                     record.get("failures_csv_artifact_id"),
+                    record.get("exceptions_csv_artifact_id"),
                     record.get("history_csv_artifact_id"),
                     record.get("logs_artifact_id"),
                     record["total_requests"],

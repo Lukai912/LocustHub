@@ -125,12 +125,35 @@ export interface ReportSummary {
   project_id: string;
   run_id: string;
   report_status: string;
+  artifacts?: ReportArtifact[];
+  log_preview?: string;
   total_requests: number;
   total_failures: number;
   avg_response_time: number;
   p95_response_time: number;
   p99_response_time: number;
   total_rps: number;
+  fail_ratio: number;
+}
+
+export interface ReportArtifact {
+  id: string;
+  name: string;
+  kind: string;
+  content_type: string;
+  size_bytes: number;
+  checksum: string;
+  download_url: string;
+}
+
+export interface LocustHistoryPoint {
+  sample_time: string;
+  user_count: number;
+  total_rps: number;
+  total_fail_per_sec: number;
+  p50: number;
+  p95: number;
+  avg_response_time: number;
   fail_ratio: number;
 }
 
@@ -161,6 +184,7 @@ export interface LocustWorker {
 export interface LocustStatsResponse {
   stats: LocustStatRow[];
   errors: Array<Record<string, unknown>>;
+  history: LocustHistoryPoint[];
   total_rps: number;
   total_fail_per_sec: number;
   fail_ratio: number;

@@ -15,6 +15,9 @@ class ArtifactRepository:
     def generate_download_url(self, object_key: str) -> str:
         raise NotImplementedError
 
+    def read_text(self, object_key: str) -> str:
+        raise NotImplementedError
+
 
 class LocalArtifactRepository(ArtifactRepository):
     def __init__(self, root: Path):
@@ -39,6 +42,17 @@ class LocalArtifactRepository(ArtifactRepository):
 
     def generate_download_url(self, object_key: str) -> str:
         return f"/artifacts/{object_key}"
+
+    def path_for(self, object_key: str) -> Path:
+        # Resolve and validate local paths so API download routes cannot be used
+        # to escape the artifact root with crafted object keys.
+        path = (self.root / object_key).resolve()
+        if not path.is_relative_to(self.root.resolve()):
+            raise ValueError("Artifact object key escapes the configured root")
+        return path
+
+    def read_text(self, object_key: str) -> str:
+        return self.path_for(object_key).read_text(encoding="utf-8")
 
 
 class AliyunOssArtifactRepository(ArtifactRepository):
@@ -74,6 +88,9 @@ class AliyunOssArtifactRepository(ArtifactRepository):
     def generate_download_url(self, object_key: str) -> str:
         return self._bucket.sign_url("GET", object_key, self._expire_seconds)
 
+    def read_text(self, object_key: str) -> str:
+        return self._bucket.get_object(object_key).read().decode("utf-8")
+
 
 class UnconfiguredOssArtifactRepository(ArtifactRepository):
     provider = "aliyun_oss"
@@ -88,3 +105,6 @@ class UnconfiguredOssArtifactRepository(ArtifactRepository):
         # Return a stable pointer for metadata previews even though uploads are
         # blocked until credentials are configured.
         return f"oss://{self.bucket}/{quote(object_key)}"
+
+    def read_text(self, object_key: str) -> str:
+        raise RuntimeError("Aliyun OSS is selected but not fully configured")

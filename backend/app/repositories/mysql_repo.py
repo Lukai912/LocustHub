@@ -65,6 +65,7 @@ class MySQLRepository(SQLiteRepository):
             record.get("html_artifact_id"),
             record.get("requests_csv_artifact_id"),
             record.get("failures_csv_artifact_id"),
+            record.get("exceptions_csv_artifact_id"),
             record.get("history_csv_artifact_id"),
             record.get("logs_artifact_id"),
             record["total_requests"],
@@ -81,7 +82,27 @@ class MySQLRepository(SQLiteRepository):
             # upload failures, so MySQL uses an idempotent run_id upsert.
             conn.execute(
                 """
-                INSERT INTO locust_report_summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO locust_report_summaries (
+                    id,
+                    tenant_id,
+                    project_id,
+                    run_id,
+                    report_status,
+                    html_artifact_id,
+                    requests_csv_artifact_id,
+                    failures_csv_artifact_id,
+                    exceptions_csv_artifact_id,
+                    history_csv_artifact_id,
+                    logs_artifact_id,
+                    total_requests,
+                    total_failures,
+                    avg_response_time,
+                    p95_response_time,
+                    p99_response_time,
+                    total_rps,
+                    fail_ratio,
+                    archived_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     id = VALUES(id),
                     tenant_id = VALUES(tenant_id),
@@ -90,6 +111,7 @@ class MySQLRepository(SQLiteRepository):
                     html_artifact_id = VALUES(html_artifact_id),
                     requests_csv_artifact_id = VALUES(requests_csv_artifact_id),
                     failures_csv_artifact_id = VALUES(failures_csv_artifact_id),
+                    exceptions_csv_artifact_id = VALUES(exceptions_csv_artifact_id),
                     history_csv_artifact_id = VALUES(history_csv_artifact_id),
                     logs_artifact_id = VALUES(logs_artifact_id),
                     total_requests = VALUES(total_requests),

@@ -304,6 +304,105 @@ tbody tr.selected {
   gap: 10px;
 }
 
+.download-panel a {
+  display: block;
+  padding: 12px;
+  border: 1px solid #d6e2f2;
+  border-radius: 6px;
+  color: #175cd3;
+  background: #f4f8ff;
+  text-decoration: none;
+}
+
+.artifact-hint {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed #cfd8e6;
+  border-radius: 6px;
+  background: #fbfcff;
+}
+
+.artifact-hint span {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: #344256;
+  background: #eef2f7;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.chart-card {
+  min-height: 140px;
+  padding: 12px;
+  border: 1px solid #e4e9f1;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.chart-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: #667085;
+  font-size: 12px;
+}
+
+.chart-title strong {
+  color: #202631;
+  font-size: 18px;
+}
+
+.chart-card svg {
+  width: 100%;
+  height: 90px;
+  border-left: 1px solid #d8e0ea;
+  border-bottom: 1px solid #d8e0ea;
+}
+
+.chart-card polyline {
+  fill: none;
+  stroke: #1766d5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.logs-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 12px;
+}
+
+.logs-panel h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.logs-panel pre {
+  min-height: 180px;
+  max-height: 320px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid #e4e9f1;
+  border-radius: 6px;
+  color: #d9e2f1;
+  background: #172033;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 980px) {
   .app-shell,
   .split-layout,
@@ -328,7 +427,12 @@ tbody tr.selected {
 
   .metric-grid,
   .runtime-strip,
-  .report-grid {
+  .report-grid,
+  .chart-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .logs-panel {
+    grid-template-columns: 1fr;
   }
 }

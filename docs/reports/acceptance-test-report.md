@@ -509,3 +509,37 @@ git diff --check -> passed
 - 前端源码仍保留独立 Vite 工程，便于后续复杂 UI 开发。
 - Helm 独立 Admin workload 仍作为可选兼容路径保留，默认不启用。
 - 本阶段验证本地单服务和静态部署包，未执行真实 Docker build 或 Helm template。
+
+## 19. 阶段 12 Locust WebUI 与报告下载增强验收
+
+阶段 12 新增范围：
+
+- Locust Detail 增加 `Charts`、`Logs`、`Download Data`。
+- 图表覆盖 RPS、Failures/s、Response Times、User Count。
+- `/locust/stats` 返回 `history` 和最新 `errors`。
+- `/report` 返回 artifact 列表和 master log 预览。
+- 新增 artifact 下载接口：`GET /api/v1/artifacts/{artifact_id}/download`。
+- 停止任务后归档 HTML report、requests CSV、failures CSV、exceptions CSV、history CSV、master log。
+- 阶段 12 文档：`docs/stage12-locust-webui-report-downloads.md`
+
+阶段 12 自动化测试覆盖：
+
+- 报告 summary 暴露所有可下载 artifact。
+- artifact 下载接口执行租户权限检查。
+- 指标接口返回历史趋势和错误行。
+- 前端结构包含 Charts、Logs、Download Data 和下载项。
+
+阶段 12 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage12_reports_webui.py -q -> 3 passed in 0.58s
+cd backend && DATABASE_PATH=/private/tmp/locusthub-stage12-full.db ARTIFACT_ROOT=/private/tmp/locusthub-stage12-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 44 passed in 2.01s
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 466ms
+```
+
+阶段 12 验收边界：
+
+- 图表使用内置 SVG polyline，不引入 Chart.js/ECharts。
+- 真实 Locust exceptions CSV 端点不可用时生成空 CSV，不阻塞报告归档。
+- 本阶段聚焦运行详情和报告下载，完整报告对比进入后续 Stage16。

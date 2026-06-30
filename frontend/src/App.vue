@@ -34,7 +34,7 @@ import type {
 } from './types';
 
 type ViewKey = 'dashboard' | 'tenants' | 'projects' | 'scripts' | 'plans' | 'runs' | 'governance' | 'reports';
-type LocustTab = 'Statistics' | 'Failures' | 'Workers' | 'Download';
+type LocustTab = 'Statistics' | 'Charts' | 'Failures' | 'Workers' | 'Logs' | 'Download Data';
 
 const navigation: Array<{ key: ViewKey; label: string; cn: string }> = [
   { key: 'dashboard', label: 'Dashboard', cn: '仪表盘' },
@@ -46,7 +46,8 @@ const navigation: Array<{ key: ViewKey; label: string; cn: string }> = [
   { key: 'governance', label: 'Governance', cn: '治理' },
   { key: 'reports', label: 'Reports', cn: '报告' },
 ];
-const locustTabs: LocustTab[] = ['Statistics', 'Failures', 'Workers', 'Download'];
+const locustTabs: LocustTab[] = ['Statistics', 'Charts', 'Failures', 'Workers', 'Logs', 'Download Data'];
+const expectedReportArtifacts = ['HTML Report', 'Requests CSV', 'Failures CSV', 'Exceptions CSV', 'History CSV', 'Master Log'];
 
 const activeView = ref<ViewKey>('dashboard');
 const activeTab = ref<LocustTab>('Statistics');
@@ -161,6 +162,32 @@ async function selectRun(run: TestRun) {
 function p95Value() {
   return stats.value?.current_response_time_percentiles?.['response_time_percentile_0.95'] ?? 0;
 }
+
+function chartValues(key: 'total_rps' | 'total_fail_per_sec' | 'p50' | 'p95' | 'user_count') {
+  return (stats.value?.history ?? []).map((point) => Number(point[key] ?? 0));
+}
+
+function sparklinePoints(values: number[], width = 320, height = 90) {
+  if (!values.length) return '';
+  const max = Math.max(...values, 1);
+  const step = values.length > 1 ? width / (values.length - 1) : width;
+  // SVG coordinates grow downward, so each value is inverted against the chart
+  // height while preserving the raw Locust metric scale.
+  return values
+    .map((value, index) => {
+      const x = Math.round(index * step);
+      const y = Math.round(height - (value / max) * height);
+      return `${x},${y}`;
+    })
+    .join(' ');
+}
+
+const chartCards = computed(() => [
+  { title: 'RPS', points: sparklinePoints(chartValues('total_rps')), latest: stats.value?.total_rps ?? 0 },
+  { title: 'Failures/s', points: sparklinePoints(chartValues('total_fail_per_sec')), latest: stats.value?.total_fail_per_sec ?? 0 },
+  { title: 'Response Times', points: sparklinePoints(chartValues('p95')), latest: p95Value() },
+  { title: 'User Count', points: sparklinePoints(chartValues('user_count')), latest: stats.value?.user_count ?? 0 },
+]);
 
 onMounted(refreshAll);
 </script>
@@ -324,19 +351,53 @@ onMounted(refreshAll);
               </tr>
             </tbody>
           </table>
+          <div v-if="activeTab === 'Charts'" class="chart-grid">
+            <article v-for="card in chartCards" :key="card.title" class="chart-card">
+              <div class="chart-title"><span>{{ card.title }}</span><strong>{{ card.latest }}</strong></div>
+              <svg viewBox="0 0 320 90" role="img" :aria-label="`${card.title} trend chart`">
+                <polyline v-if="card.points" :points="card.points" />
+              </svg>
+            </article>
+          </div>
           <table v-if="activeTab === 'Failures'">
             <thead><tr><th>Name</th><th>Error</th><th>Occurrences</th></tr></thead>
-            <tbody><tr v-for="(item, index) in stats?.errors ?? []" :key="index"><td>{{ item.name ?? '-' }}</td><td>{{ item.error ?? '-' }}</td><td>{{ item.occurrences ?? 0 }}</td></tr></tbody>
+            <tbody>
+              <tr v-for="(item, index) in stats?.errors ?? []" :key="index"><td>{{ item.name ?? '-' }}</td><td>{{ item.error ?? '-' }}</td><td>{{ item.occurrences ?? 0 }}</td></tr>
+              <tr v-if="!(stats?.errors ?? []).length"><td colspan="3">No failures captured for this sample</td></tr>
+            </tbody>
           </table>
           <table v-if="activeTab === 'Workers'">
             <thead><tr><th>ID</th><th>State</th><th>Users</th><th>CPU</th><th>Memory</th></tr></thead>
             <tbody><tr v-for="worker in stats?.workers ?? []" :key="worker.id"><td>{{ worker.id }}</td><td>{{ worker.state }}</td><td>{{ worker.user_count }}</td><td>{{ worker.cpu_usage }}</td><td>{{ worker.memory_usage }}</td></tr></tbody>
           </table>
-          <div v-if="activeTab === 'Download'" class="download-panel">
+          <div v-if="activeTab === 'Logs'" class="logs-panel">
+            <div>
+              <h3>Exceptions</h3>
+              <table>
+                <thead><tr><th>Name</th><th>Error</th><th>Occurrences</th></tr></thead>
+                <tbody>
+                  <tr v-for="(item, index) in stats?.errors ?? []" :key="index"><td>{{ item.name ?? '-' }}</td><td>{{ item.error ?? '-' }}</td><td>{{ item.occurrences ?? 0 }}</td></tr>
+                  <tr v-if="!(stats?.errors ?? []).length"><td colspan="3">No exceptions captured</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <h3>Master Log</h3>
+              <pre>{{ report?.log_preview || 'Report logs are available after archival.' }}</pre>
+            </div>
+          </div>
+          <div v-if="activeTab === 'Download Data'" class="download-panel">
             <span>Report Status</span>
             <strong>{{ report?.report_status ?? 'not archived' }}</strong>
             <span>Total Requests</span>
             <strong>{{ report?.total_requests ?? 0 }}</strong>
+            <div v-if="!(report?.artifacts ?? []).length" class="artifact-hint">
+              <span v-for="name in expectedReportArtifacts" :key="name">{{ name }}</span>
+            </div>
+            <a v-for="artifact in report?.artifacts ?? []" :key="artifact.id" :href="artifact.download_url" target="_blank" rel="noreferrer">
+              <span>{{ artifact.name }}</span>
+              <strong>{{ artifact.size_bytes }} bytes</strong>
+            </a>
           </div>
         </section>
       </section>

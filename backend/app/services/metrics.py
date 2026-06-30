@@ -84,11 +84,19 @@ class LocustMetricsSimulator:
         ]
         return snapshot, stats, errors, workers
 
-    def format_locust_stats(self, snapshot: dict | None, stats: list[dict], workers: list[dict]) -> dict:
+    def format_locust_stats(
+        self,
+        snapshot: dict | None,
+        stats: list[dict],
+        workers: list[dict],
+        errors: list[dict] | None = None,
+        snapshots: list[dict] | None = None,
+    ) -> dict:
         if snapshot is None:
             return {
                 "stats": [],
                 "errors": [],
+                "history": [],
                 "total_rps": 0,
                 "total_fail_per_sec": 0,
                 "fail_ratio": 0,
@@ -104,9 +112,23 @@ class LocustMetricsSimulator:
             item["response_time_percentile_0.95"] = item.pop("p95", item.get("response_time_percentile_0.95", 0))
             item["response_time_percentile_0.99"] = item.pop("p99", item.get("response_time_percentile_0.99", 0))
             converted.append(item)
+        history = [
+            {
+                "sample_time": row["sample_time"],
+                "user_count": row["user_count"],
+                "total_rps": row["total_rps"],
+                "total_fail_per_sec": row["total_fail_per_sec"],
+                "p50": row["current_p50"],
+                "p95": row["current_p95"],
+                "avg_response_time": row["avg_response_time"],
+                "fail_ratio": row["fail_ratio"],
+            }
+            for row in (snapshots or [snapshot])
+        ]
         return {
             "stats": converted,
-            "errors": [],
+            "errors": errors or [],
+            "history": history,
             "total_rps": snapshot["total_rps"],
             "total_fail_per_sec": snapshot["total_fail_per_sec"],
             "fail_ratio": snapshot["fail_ratio"],
@@ -146,6 +168,11 @@ class LocustMasterApiClient:
         response.raise_for_status()
         return response.text
 
+    def get_exceptions_csv(self) -> str:
+        response = httpx.get(urljoin(self.base_url, "exceptions/csv"), timeout=self.timeout_seconds)
+        response.raise_for_status()
+        return response.text
+
     def get_history_csv(self) -> str:
         response = httpx.get(urljoin(self.base_url, "stats/requests_full_history/csv"), timeout=self.timeout_seconds)
         response.raise_for_status()
@@ -162,12 +189,20 @@ class LocustReportFetcher:
         # strategies both resolve to the correct in-cluster master Service.
         base_url = self.base_url_template.format(run_id=run["id"], tenant_id=run["tenant_id"], project_id=run["project_id"], namespace=namespace)
         client = LocustMasterApiClient(base_url, self.timeout_seconds)
-        return {
+        reports = {
             "html": client.get_report_html(),
             "requests_csv": client.get_requests_csv(),
             "failures_csv": client.get_failures_csv(),
             "history_csv": client.get_history_csv(),
         }
+        try:
+            reports["exceptions_csv"] = client.get_exceptions_csv()
+        except Exception:
+            # Some Locust versions or deployments omit the exceptions export;
+            # keep the rest of the native report archive intact and let the
+            # archiver generate an empty exceptions CSV.
+            reports["exceptions_csv"] = ""
+        return reports
 
 
 class LocustApiMetricsCollector(LocustMetricsSimulator):

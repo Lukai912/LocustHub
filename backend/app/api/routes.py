@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app.core.security import require_token, verify_password
 from app.models.schemas import (
@@ -21,6 +22,7 @@ def create_router(deps: dict) -> APIRouter:
     repo = deps["repo"]
     runner = deps["runner"]
     metrics = deps["metrics"]
+    artifacts = deps["artifacts"]
     router = APIRouter()
 
     def current_user(token: str = Depends(require_token)) -> dict:
@@ -53,6 +55,49 @@ def create_router(deps: dict) -> APIRouter:
         if tenant_id:
             ensure_tenant_access(tenant_id, user)
         return item
+
+    def enrich_report(report: dict) -> dict:
+        artifact_fields = [
+            ("html_artifact_id", "HTML Report", "html"),
+            ("requests_csv_artifact_id", "Requests CSV", "requests_csv"),
+            ("failures_csv_artifact_id", "Failures CSV", "failures_csv"),
+            ("exceptions_csv_artifact_id", "Exceptions CSV", "exceptions_csv"),
+            ("history_csv_artifact_id", "History CSV", "history_csv"),
+            ("logs_artifact_id", "Master Log", "master_log"),
+        ]
+        enriched = dict(report)
+        enriched_artifacts = []
+        for field, name, kind in artifact_fields:
+            artifact_id = report.get(field)
+            if not artifact_id:
+                continue
+            artifact = repo.get_artifact(artifact_id)
+            if not artifact:
+                continue
+            enriched_artifacts.append(
+                {
+                    "id": artifact["id"],
+                    "name": name,
+                    "kind": kind,
+                    "content_type": artifact["content_type"],
+                    "size_bytes": artifact["size_bytes"],
+                    "checksum": artifact["checksum"],
+                    "download_url": f"/api/v1/artifacts/{artifact['id']}/download",
+                }
+            )
+        enriched["artifacts"] = enriched_artifacts
+        enriched["log_preview"] = ""
+        if report.get("logs_artifact_id"):
+            log_artifact = repo.get_artifact(report["logs_artifact_id"])
+            if log_artifact:
+                try:
+                    # Log previews are best-effort; download links remain
+                    # available even if an external object store is temporarily
+                    # unreachable from the control plane.
+                    enriched["log_preview"] = artifacts.read_text(log_artifact["object_key"])[:4000]
+                except Exception:
+                    enriched["log_preview"] = ""
+        return enriched
 
     @router.post("/auth/login", tags=["Auth"], summary="Login and return bearer token")
     def login(payload: LoginRequest) -> dict:
@@ -157,9 +202,10 @@ def create_router(deps: dict) -> APIRouter:
         require_scoped_record("test_runs", run_id, user, "Test run not found")
         snapshots = repo.run_snapshots(run_id)
         stats = repo.latest_request_stats(run_id)
+        errors = repo.latest_errors(run_id)
         workers = repo.latest_workers(run_id)
         latest = snapshots[-1] if snapshots else None
-        return metrics.format_locust_stats(latest, stats, workers)
+        return metrics.format_locust_stats(latest, stats, workers, errors=errors, snapshots=snapshots)
 
     @router.get("/test-runs/{run_id}/locust/workers", tags=["Metrics"], summary="Get latest worker states")
     def locust_workers(run_id: str, user: dict = Depends(current_user)) -> list[dict]:
@@ -183,7 +229,22 @@ def create_router(deps: dict) -> APIRouter:
         report = repo.get_report(run_id)
         if not report:
             raise HTTPException(status_code=404, detail="Report not archived")
-        return report
+        return enrich_report(report)
+
+    @router.get("/artifacts/{artifact_id}/download", tags=["Reports"], summary="Download archived artifact")
+    def download_artifact(artifact_id: str, user: dict = Depends(current_user)):
+        """Download a report, CSV, or log artifact after enforcing tenant scope."""
+        artifact = repo.get_artifact(artifact_id)
+        if not artifact:
+            raise HTTPException(status_code=404, detail="Artifact not found")
+        ensure_tenant_access(artifact["tenant_id"], user)
+        filename = artifact["object_key"].rstrip("/").split("/")[-1] or artifact["id"]
+        if hasattr(artifacts, "path_for"):
+            path = artifacts.path_for(artifact["object_key"])
+            if not path.exists():
+                raise HTTPException(status_code=404, detail="Artifact content not found")
+            return FileResponse(path, media_type=artifact["content_type"], filename=filename)
+        return RedirectResponse(artifacts.generate_download_url(artifact["object_key"]))
 
     @router.get("/target-whitelists", tags=["Governance"], summary="List target whitelist entries")
     def targets(user: dict = Depends(current_user)) -> list[dict]:

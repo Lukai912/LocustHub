@@ -137,7 +137,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.include_router(create_router({"repo": repo, "runner": runner, "metrics": metrics, "settings": settings}), prefix=settings.api_prefix)
+    app.include_router(create_router({"repo": repo, "runner": runner, "metrics": metrics, "artifacts": artifacts, "settings": settings}), prefix=settings.api_prefix)
 
     @app.get("/health")
     def health() -> dict:

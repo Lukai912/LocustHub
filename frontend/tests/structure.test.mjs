@@ -40,6 +40,9 @@ for (const label of ['Dashboard', 'Tenants', 'Projects', 'Scripts', 'Test Plans'
 for (const label of ['Approval Requests', 'Admission Snapshots']) {
   assert.match(app, new RegExp(label), `${label} governance label must exist`);
 }
-for (const tab of ['Statistics', 'Failures', 'Workers', 'Download']) {
+for (const tab of ['Statistics', 'Charts', 'Failures', 'Workers', 'Logs', 'Download Data']) {
   assert.match(app, new RegExp(tab), `${tab} Locust tab must exist`);
+}
+for (const label of ['RPS', 'Failures/s', 'Response Times', 'User Count', 'Master Log', 'HTML Report', 'Requests CSV', 'Failures CSV', 'Exceptions CSV', 'History CSV']) {
+  assert.match(app, new RegExp(label), `${label} Locust WebUI detail label must exist`);
 }

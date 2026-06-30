@@ -32,6 +32,7 @@ class ReportArchiver:
         html_artifact = self._save(run, f"{base}/reports/report.html", real_reports.get("html") or self._html(run, latest, stats), "text/html")
         requests_artifact = self._save(run, f"{base}/reports/requests.csv", real_reports.get("requests_csv") or self._csv(stats), "text/csv")
         failures_artifact = self._save(run, f"{base}/reports/failures.csv", real_reports.get("failures_csv") or "method,name,error,occurrences\n", "text/csv")
+        exceptions_artifact = self._save(run, f"{base}/reports/exceptions.csv", real_reports.get("exceptions_csv") or "method,name,error,occurrences\n", "text/csv")
         history_artifact = self._save(run, f"{base}/reports/history.csv", real_reports.get("history_csv") or self._csv(snapshots), "text/csv")
         logs_artifact = self._save(run, f"{base}/logs/master.log", f"Run {run['id']} archived\n", "text/plain")
 
@@ -44,6 +45,7 @@ class ReportArchiver:
                 "html_artifact_id": html_artifact["id"],
                 "requests_csv_artifact_id": requests_artifact["id"],
                 "failures_csv_artifact_id": failures_artifact["id"],
+                "exceptions_csv_artifact_id": exceptions_artifact["id"],
                 "history_csv_artifact_id": history_artifact["id"],
                 "logs_artifact_id": logs_artifact["id"],
                 "total_requests": total_requests,
