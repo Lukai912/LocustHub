@@ -543,3 +543,35 @@ cd frontend && npm run build -> passed, built in 466ms
 - 图表使用内置 SVG polyline，不引入 Chart.js/ECharts。
 - 真实 Locust exceptions CSV 端点不可用时生成空 CSV，不阻塞报告归档。
 - 本阶段聚焦运行详情和报告下载，完整报告对比进入后续 Stage16。
+
+## 20. 阶段 13 脚本与计划管理增强验收
+
+阶段 13 新增范围：
+
+- `GET /api/v1/scripts` 脚本版本列表。
+- `POST /api/v1/scripts/validate` 静态 Locustfile 校验。
+- `POST /api/v1/test-plans/{plan_id}/clone` 计划复制。
+- Scripts 页面支持 `Validate Locustfile` 和 `Create Script Version`。
+- Test Plans 页面支持 `Create Test Plan` 和 `Clone Plan`。
+- 阶段 13 文档：`docs/stage13-script-plan-management.md`
+
+阶段 13 自动化测试覆盖：
+
+- 有效 Locustfile 能识别 `HttpUser` 和 `@task`。
+- 缺少 `HttpUser` 的脚本返回校验错误。
+- 复制计划后可以继续创建 run。
+- 新建脚本能通过脚本列表接口查询。
+- 前端结构包含脚本校验、创建脚本、创建计划、复制计划入口。
+
+阶段 13 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage13_script_plan_management.py -q -> 4 passed in 0.57s
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 574ms
+```
+
+阶段 13 验收边界：
+
+- Locustfile 校验为静态检查，不安装依赖、不执行脚本。
+- 复杂脚本调试和在线编辑器体验继续留给后续 UI 深化。

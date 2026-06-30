@@ -38,6 +38,13 @@ export interface ScriptVersion {
   requirements: string;
 }
 
+export interface ScriptValidationResult {
+  valid: boolean;
+  user_class_found: boolean;
+  task_count: number;
+  errors: string[];
+}
+
 export interface TestPlan {
   id: string;
   tenant_id: string;

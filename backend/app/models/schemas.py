@@ -46,6 +46,10 @@ class ScriptVersionCreate(BaseModel):
     requirements: str = Field(default="", description="Optional Python requirements needed by the Locust script.")
 
 
+class ScriptValidationRequest(BaseModel):
+    locustfile: str = Field(description="Locustfile source code to validate without executing it.")
+
+
 class TestPlanCreate(BaseModel):
     tenant_id: str = Field(description="Owner tenant id.")
     project_id: str = Field(description="Project id for the load test plan.")
@@ -56,6 +60,10 @@ class TestPlanCreate(BaseModel):
     spawn_rate: int = Field(default=2, ge=1, description="Virtual users spawned per second.")
     run_time_seconds: int = Field(default=60, ge=1, description="Run duration in seconds.")
     worker_count: int = Field(default=1, ge=1, description="Locust worker replica count.")
+
+
+class TestPlanClone(BaseModel):
+    name: str | None = Field(default=None, description="Optional display name for the copied plan.")
 
 
 class TestRunCreate(BaseModel):

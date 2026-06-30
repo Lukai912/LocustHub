@@ -5,6 +5,7 @@ import type {
   Project,
   QuotaUsageSnapshot,
   ReportSummary,
+  ScriptValidationResult,
   ScriptVersion,
   TargetWhitelist,
   Tenant,
@@ -42,11 +43,55 @@ export async function listProjects(): Promise<Project[]> {
 }
 
 export async function listScripts(): Promise<ScriptVersion[]> {
-  return request<ScriptVersion[]>('/scripts/script-demo/versions');
+  return request<ScriptVersion[]>('/scripts');
+}
+
+export async function validateLocustfile(locustfile: string): Promise<ScriptValidationResult> {
+  return request<ScriptValidationResult>('/scripts/validate', {
+    method: 'POST',
+    body: JSON.stringify({ locustfile }),
+  });
+}
+
+export async function createScriptVersion(payload: {
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  locustfile: string;
+  requirements: string;
+}): Promise<ScriptVersion> {
+  return request<ScriptVersion>('/scripts', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function listTestPlans(): Promise<TestPlan[]> {
   return request<TestPlan[]>('/test-plans');
+}
+
+export async function createTestPlan(payload: {
+  tenant_id: string;
+  project_id: string;
+  script_version_id: string;
+  name: string;
+  target_host: string;
+  users: number;
+  spawn_rate: number;
+  run_time_seconds: number;
+  worker_count: number;
+}): Promise<TestPlan> {
+  return request<TestPlan>('/test-plans', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function cloneTestPlan(planId: string, name?: string): Promise<TestPlan> {
+  return request<TestPlan>(`/test-plans/${planId}/clone`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
 }
 
 export async function listTestRuns(): Promise<TestRun[]> {

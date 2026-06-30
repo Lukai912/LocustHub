@@ -17,7 +17,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -212,6 +213,86 @@ button.primary {
 
 .surface-title span {
   color: #667085;
+  font-size: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #e4e9f1;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.form-grid.compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.form-grid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.form-grid label.wide,
+.form-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.form-grid label span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.form-grid input,
+.form-grid textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cfd8e6;
+  border-radius: 6px;
+  padding: 7px 8px;
+  color: #202631;
+  background: #ffffff;
+}
+
+.form-grid textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.validation-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border: 1px solid #f0b8b8;
+  border-radius: 999px;
+  padding: 0 8px;
+  color: #a43232;
+  background: #fff1f1;
+  font-size: 12px;
+}
+
+.validation-pill.ok {
+  border-color: #9ed3b1;
+  color: #167348;
+  background: #eefaf2;
+}
+
+.validation-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #a43232;
   font-size: 12px;
 }
 
@@ -428,7 +509,9 @@ tbody tr.selected {
   .metric-grid,
   .runtime-strip,
   .report-grid,
-  .chart-grid {
+  .chart-grid,
+  .form-grid,
+  .form-grid.compact {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

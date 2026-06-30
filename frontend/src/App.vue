@@ -3,6 +3,9 @@ import { computed, onMounted, ref } from 'vue';
 import {
   collectRun,
   createRunFromPlan,
+  createScriptVersion,
+  createTestPlan,
+  cloneTestPlan,
   getLocustStats,
   getReport,
   listApprovalRequests,
@@ -17,6 +20,7 @@ import {
   listTestRuns,
   startRun,
   stopRun,
+  validateLocustfile,
 } from './api/client';
 import type {
   ApprovalRequest,
@@ -25,6 +29,7 @@ import type {
   Project,
   QuotaUsageSnapshot,
   ReportSummary,
+  ScriptValidationResult,
   ScriptVersion,
   TargetWhitelist,
   Tenant,
@@ -67,6 +72,26 @@ const dnsSnapshots = ref<DnsResolutionSnapshot[]>([]);
 const quotaUsageSnapshots = ref<QuotaUsageSnapshot[]>([]);
 const stats = ref<LocustStatsResponse | null>(null);
 const report = ref<ReportSummary | null>(null);
+const validation = ref<ScriptValidationResult | null>(null);
+const defaultLocustfile = "from locust import HttpUser, task\n\nclass DemoUser(HttpUser):\n    @task\n    def index(self):\n        self.client.get('/todos/1')\n";
+const scriptForm = ref({
+  tenant_id: 'tenant-demo',
+  project_id: 'project-demo',
+  name: 'New Locust script',
+  locustfile: defaultLocustfile,
+  requirements: '',
+});
+const planForm = ref({
+  tenant_id: 'tenant-demo',
+  project_id: 'project-demo',
+  script_version_id: 'script-demo',
+  name: 'New Test Plan',
+  target_host: 'https://jsonplaceholder.typicode.com',
+  users: 5,
+  spawn_rate: 1,
+  run_time_seconds: 60,
+  worker_count: 1,
+});
 
 const activeRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value) ?? runs.value[0]);
 const runningCount = computed(() => runs.value.filter((run) => run.status === 'RUNNING').length);
@@ -157,6 +182,36 @@ async function stopActiveRun() {
 async function selectRun(run: TestRun) {
   selectedRunId.value = run.id;
   await withLoading(async () => refreshRunDetail(run.id));
+}
+
+async function validateScriptForm() {
+  await withLoading(async () => {
+    validation.value = await validateLocustfile(scriptForm.value.locustfile);
+  });
+}
+
+async function createScriptFromForm() {
+  await withLoading(async () => {
+    const created = await createScriptVersion(scriptForm.value);
+    scripts.value = await listScripts();
+    planForm.value.script_version_id = created.id;
+    validation.value = await validateLocustfile(created.locustfile);
+  });
+}
+
+async function createPlanFromForm() {
+  await withLoading(async () => {
+    await createTestPlan(planForm.value);
+    plans.value = await listTestPlans();
+  });
+}
+
+async function cloneSelectedPlan(plan: TestPlan) {
+  await withLoading(async () => {
+    const cloned = await cloneTestPlan(plan.id, `${plan.name} Copy`);
+    plans.value = await listTestPlans();
+    planForm.value = { ...planForm.value, ...cloned, name: `${cloned.name} Variant` };
+  });
 }
 
 function p95Value() {
@@ -298,6 +353,23 @@ onMounted(refreshAll);
 
       <section v-if="activeView === 'scripts'" class="content surface">
         <div class="surface-title"><h2>Scripts</h2><span>{{ scripts.length }} versions</span></div>
+        <div class="form-grid">
+          <label><span>Name</span><input v-model="scriptForm.name" /></label>
+          <label><span>Tenant</span><input v-model="scriptForm.tenant_id" /></label>
+          <label><span>Project</span><input v-model="scriptForm.project_id" /></label>
+          <label><span>Requirements</span><input v-model="scriptForm.requirements" placeholder="locust plugins or libs" /></label>
+          <label class="wide"><span>Locustfile</span><textarea v-model="scriptForm.locustfile" rows="9" /></label>
+          <div class="form-actions wide">
+            <button type="button" @click="validateScriptForm">Validate Locustfile</button>
+            <button class="primary" type="button" @click="createScriptFromForm">Create Script Version</button>
+            <span v-if="validation" class="validation-pill" :class="{ ok: validation.valid }">
+              {{ validation.valid ? 'valid' : 'invalid' }} · {{ validation.task_count }} tasks
+            </span>
+          </div>
+          <ul v-if="validation?.errors.length" class="validation-list wide">
+            <li v-for="item in validation.errors" :key="item">{{ item }}</li>
+          </ul>
+        </div>
         <table>
           <thead><tr><th>Name</th><th>Project</th><th>Requirements</th><th>ID</th></tr></thead>
           <tbody><tr v-for="script in scripts" :key="script.id"><td>{{ script.name }}</td><td>{{ script.project_id }}</td><td>{{ script.requirements || '-' }}</td><td>{{ script.id }}</td></tr></tbody>
@@ -306,9 +378,24 @@ onMounted(refreshAll);
 
       <section v-if="activeView === 'plans'" class="content surface">
         <div class="surface-title"><h2>Test Plans</h2><span>{{ plans.length }} plans</span></div>
+        <div class="form-grid compact">
+          <label><span>Name</span><input v-model="planForm.name" /></label>
+          <label><span>Script</span><input v-model="planForm.script_version_id" /></label>
+          <label><span>Target</span><input v-model="planForm.target_host" /></label>
+          <label><span>Users</span><input v-model.number="planForm.users" type="number" min="1" /></label>
+          <label><span>Spawn Rate</span><input v-model.number="planForm.spawn_rate" type="number" min="1" /></label>
+          <label><span>Duration</span><input v-model.number="planForm.run_time_seconds" type="number" min="1" /></label>
+          <label><span>Workers</span><input v-model.number="planForm.worker_count" type="number" min="1" /></label>
+          <div class="form-actions"><button class="primary" type="button" @click="createPlanFromForm">Create Test Plan</button></div>
+        </div>
         <table>
-          <thead><tr><th>Name</th><th>Target</th><th>Users</th><th>Spawn</th><th>Workers</th><th>Status</th></tr></thead>
-          <tbody><tr v-for="plan in plans" :key="plan.id"><td>{{ plan.name }}</td><td>{{ plan.target_host }}</td><td>{{ plan.users }}</td><td>{{ plan.spawn_rate }}</td><td>{{ plan.worker_count }}</td><td>{{ plan.status }}</td></tr></tbody>
+          <thead><tr><th>Name</th><th>Target</th><th>Users</th><th>Spawn</th><th>Workers</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr v-for="plan in plans" :key="plan.id">
+              <td>{{ plan.name }}</td><td>{{ plan.target_host }}</td><td>{{ plan.users }}</td><td>{{ plan.spawn_rate }}</td><td>{{ plan.worker_count }}</td><td>{{ plan.status }}</td>
+              <td><button type="button" @click="cloneSelectedPlan(plan)">Clone Plan</button></td>
+            </tr>
+          </tbody>
         </table>
       </section>
 

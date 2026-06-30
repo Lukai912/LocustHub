@@ -461,6 +461,23 @@ class SQLiteRepository:
             )
         return item
 
+    def clone_test_plan(self, plan_id: str, name: str | None = None) -> dict | None:
+        plan = self.get_by_id("test_plans", plan_id)
+        if not plan:
+            return None
+        clone = {
+            "tenant_id": plan["tenant_id"],
+            "project_id": plan["project_id"],
+            "script_version_id": plan["script_version_id"],
+            "name": name or f"{plan['name']} Copy",
+            "target_host": plan["target_host"],
+            "users": plan["users"],
+            "spawn_rate": plan["spawn_rate"],
+            "run_time_seconds": plan["run_time_seconds"],
+            "worker_count": plan["worker_count"],
+        }
+        return self.insert_test_plan(clone)
+
     def insert_target(self, data: dict) -> dict:
         item = {"id": new_id("target"), "status": "pending", "created_at": now_iso(), "approved_by": None, "approved_at": None, **data}
         with self.db.connect() as conn:

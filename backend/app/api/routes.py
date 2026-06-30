@@ -10,12 +10,15 @@ from app.models.schemas import (
     LoginRequest,
     ProjectCreate,
     QuotaUpdate,
+    ScriptValidationRequest,
     ScriptVersionCreate,
     TargetWhitelistCreate,
     TenantCreate,
+    TestPlanClone,
     TestPlanCreate,
     TestRunCreate,
 )
+from app.services.scripts import validate_locustfile
 
 
 def create_router(deps: dict) -> APIRouter:
@@ -134,11 +137,21 @@ def create_router(deps: dict) -> APIRouter:
         ensure_tenant_access(payload.tenant_id, user)
         return repo.insert_project(payload.model_dump())
 
+    @router.get("/scripts", tags=["Scripts"], summary="List script versions")
+    def scripts(user: dict = Depends(current_user)) -> list[dict]:
+        """List Locust script versions visible to the current user."""
+        return scoped_rows("script_versions", user)
+
     @router.post("/scripts", tags=["Scripts"], summary="Create script version")
     def create_script(payload: ScriptVersionCreate, user: dict = Depends(current_user)) -> dict:
         """Store a Locust script version and its optional Python requirements."""
         ensure_tenant_access(payload.tenant_id, user)
         return repo.insert_script_version(payload.model_dump())
+
+    @router.post("/scripts/validate", tags=["Scripts"], summary="Validate Locustfile")
+    def validate_script(payload: ScriptValidationRequest, user: dict = Depends(current_user)) -> dict:
+        """Statically validate Locustfile syntax, HttpUser usage, and task decorators."""
+        return validate_locustfile(payload.locustfile)
 
     @router.get("/scripts/{script_id}/versions", tags=["Scripts"], summary="List script versions")
     def script_versions(script_id: str, user: dict = Depends(current_user)) -> list[dict]:
@@ -155,6 +168,15 @@ def create_router(deps: dict) -> APIRouter:
         """Create a reusable Locust test plan with target, load, and worker settings."""
         ensure_tenant_access(payload.tenant_id, user)
         return repo.insert_test_plan(payload.model_dump())
+
+    @router.post("/test-plans/{plan_id}/clone", tags=["Test Plans"], summary="Clone test plan")
+    def clone_test_plan(plan_id: str, payload: TestPlanClone, user: dict = Depends(current_user)) -> dict:
+        """Copy an existing plan so users can tune load settings without re-entering every field."""
+        plan = require_scoped_record("test_plans", plan_id, user, "Test plan not found")
+        cloned = repo.clone_test_plan(plan["id"], payload.name)
+        if not cloned:
+            raise HTTPException(status_code=404, detail="Test plan not found")
+        return cloned
 
     @router.post("/test-runs", tags=["Test Runs"], summary="Create test run")
     def create_test_run(payload: TestRunCreate, user: dict = Depends(current_user)) -> dict:
