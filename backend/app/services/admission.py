@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import socket
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -44,7 +45,7 @@ class RunAdmissionController:
         self.repo = repo
         self.dns_policy = dns_policy or DnsIpPolicy()
 
-    def validate(self, run: dict) -> None:
+    def validate(self, run: dict) -> dict:
         quota = self.repo.get_quota(run["tenant_id"])
         if quota is None:
             raise AdmissionError("Tenant quota is not configured")
@@ -71,12 +72,17 @@ class RunAdmissionController:
             self.repo.insert_quota_usage_snapshot(run, quota, running_workers, "rejected", "Run duration exceeds tenant quota")
             raise AdmissionError("Run duration exceeds tenant quota")
 
-        host = self._host(run["target_host"])
+        host, target_port = self._host_and_port(run["target_host"])
         targets = self.repo.approved_targets(run["tenant_id"], run["project_id"])
         approved_target = next((target for target in targets if target["value"] == host), None)
         if not approved_target:
             self.repo.insert_quota_usage_snapshot(run, quota, running_workers, "rejected", f"Target {host} is not approved")
             raise AdmissionError(f"Target {host} is not approved")
+        approved_ports = self._approved_ports(approved_target)
+        if target_port not in approved_ports:
+            reason = f"Target port {target_port} is not approved for {host}"
+            self.repo.insert_quota_usage_snapshot(run, quota, running_workers, "rejected", reason)
+            raise AdmissionError(reason)
 
         # System-seeded demo targets must keep the local MVP usable even when
         # the developer machine cannot resolve public DNS. Explicit private or
@@ -87,9 +93,34 @@ class RunAdmissionController:
             self.repo.insert_quota_usage_snapshot(run, quota, running_workers, "rejected", risk_reason)
             raise AdmissionError(risk_reason)
         self.repo.insert_quota_usage_snapshot(run, quota, running_workers, "approved")
+        return {
+            "target_host": host,
+            "target_port": target_port,
+            "resolved_ips": resolved_ips,
+            "allowed_ports": [target_port],
+            "risk_level": risk_level,
+            "risk_reason": risk_reason,
+        }
 
     def _host(self, target_host: str) -> str:
+        return self._host_and_port(target_host)[0]
+
+    def _host_and_port(self, target_host: str) -> tuple[str, int]:
         parsed = urlparse(target_host)
         if parsed.hostname:
-            return parsed.hostname
-        return target_host.split("/")[0].split(":")[0]
+            return parsed.hostname, parsed.port or self._default_port(parsed.scheme)
+        parsed = urlparse(f"//{target_host}")
+        if parsed.hostname:
+            return parsed.hostname, parsed.port or 443
+        return target_host.split("/")[0].split(":")[0], 443
+
+    def _default_port(self, scheme: str) -> int:
+        if scheme == "http":
+            return 80
+        return 443
+
+    def _approved_ports(self, target: dict) -> list[int]:
+        raw_ports = target.get("ports") or target.get("ports_json") or []
+        if isinstance(raw_ports, str):
+            raw_ports = json.loads(raw_ports)
+        return [int(port) for port in raw_ports]

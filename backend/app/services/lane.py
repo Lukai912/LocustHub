@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 from dataclasses import dataclass
 
 
@@ -71,8 +72,25 @@ class KubernetesManifestBuilder:
                 "defaultDeny": True,
                 "allowDns": True,
                 "allowedTarget": run["target_host"],
+                "allowedEgressIps": run.get("allowed_egress_ips", []),
+                "allowedEgressPorts": run.get("allowed_egress_ports", []),
             },
         }
+
+    def _target_egress_rule(self, run: dict) -> dict | None:
+        ips = run.get("allowed_egress_ips") or []
+        ports = run.get("allowed_egress_ports") or []
+        if not ips or not ports:
+            return None
+        return {
+            "to": [{"ipBlock": {"cidr": self._cidr_for_ip(value)}} for value in ips],
+            "ports": [{"protocol": "TCP", "port": int(port)} for port in ports],
+        }
+
+    def _cidr_for_ip(self, value: str) -> str:
+        ip = ipaddress.ip_address(value)
+        suffix = 32 if ip.version == 4 else 128
+        return f"{value}/{suffix}"
 
     def build_kubernetes_resources(self, run: dict) -> list[dict]:
         manifest = self.build_manifest(run)
@@ -86,6 +104,21 @@ class KubernetesManifestBuilder:
         service_account_name = manifest["serviceAccount"]["name"]
         master_name = manifest["master"]["name"]
         worker_name = manifest["workers"]["name"]
+        egress_rules = [
+            {
+                "to": [{"podSelector": {"matchLabels": {"test-run-id": run["id"]}}}],
+            },
+            {
+                # DNS remains the only broad egress rule. Target traffic is
+                # restricted to IPs captured during admission and stored in the
+                # run manifest for auditability.
+                "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}],
+            },
+        ]
+        target_egress = self._target_egress_rule(run)
+        if target_egress:
+            egress_rules.append(target_egress)
+
         # Keep this as plain Kubernetes dictionaries instead of YAML strings so
         # tests can assert resource semantics and the runtime can apply/delete
         # the same object model later.
@@ -180,16 +213,7 @@ class KubernetesManifestBuilder:
                             "from": [{"podSelector": {"matchLabels": {"test-run-id": run["id"]}}}],
                         }
                     ],
-                    "egress": [
-                        {
-                            "to": [{"podSelector": {"matchLabels": {"test-run-id": run["id"]}}}],
-                        },
-                        {
-                            # DNS is required before stricter FQDN/IP egress
-                            # controls are added in the governance phase.
-                            "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}],
-                        },
-                    ],
+                    "egress": egress_rules,
                 },
             },
         ]

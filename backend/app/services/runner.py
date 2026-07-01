@@ -29,12 +29,17 @@ class TestRunService:
 
         self.repo.update_run_status(run_id, "VALIDATING")
         try:
-            self.admission.validate(run)
+            admission_policy = self.admission.validate(run)
         except AdmissionError as exc:
             return self.repo.update_run_status(run_id, "APPROVAL_PENDING", str(exc))
 
         self.repo.update_run_status(run_id, "LANE_CREATING")
-        manifest = self.lanes.build_manifest(run)
+        lane_run = {
+            **run,
+            "allowed_egress_ips": admission_policy.get("resolved_ips", []),
+            "allowed_egress_ports": admission_policy.get("allowed_ports", []),
+        }
+        manifest = self.lanes.build_manifest(lane_run)
         self.repo.insert_lane(run, manifest)
         self.repo.update_run_status(run_id, "PROVISIONING")
         running = self.repo.update_run_status(run_id, "RUNNING")

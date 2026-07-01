@@ -666,3 +666,30 @@ cd frontend && npm run build -> passed, built in 533ms
 
 - 当前阶段默认比较最新报告与上一份报告，不新增手动选择复杂交互。
 - 图表继续使用轻量 SVG sparkline，不引入额外图表库。
+
+## 24. 阶段 17 出网治理与 NetworkPolicy 收敛验收
+
+阶段 17 新增范围：
+
+- 准入阶段校验目标端口必须在白名单端口内。
+- 准入通过后返回 host、port、resolved IPs、allowed ports。
+- lane manifest 记录 `allowedEgressIps` 和 `allowedEgressPorts`。
+- Kubernetes NetworkPolicy 按 DNS 快照 IP 生成 `ipBlock`，并限制到目标 TCP 端口。
+- 阶段 17 文档：`docs/stage17-egress-governance.md`
+
+阶段 17 自动化测试覆盖：
+
+- 未审批端口被拒绝，并写入 quota usage snapshot。
+- 准入结果携带可用于运行时策略生成的 egress 数据。
+- NetworkPolicy 生成目标 IP `/32` 和目标端口。
+
+阶段 17 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage17_egress_governance.py -q -> 3 passed in 0.21s
+```
+
+阶段 17 验收边界：
+
+- 当前阶段不做运行中的周期性 DNS 复核，域名解析变化需要重新创建任务。
+- NetworkPolicy 仍依赖集群 CNI 对 NetworkPolicy 的实际支持。
