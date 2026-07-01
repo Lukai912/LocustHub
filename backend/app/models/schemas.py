@@ -123,3 +123,12 @@ class BaselineRunCreate(BaseModel):
     max_fail_ratio: float = Field(default=0.05, ge=0, description="Maximum allowed failure ratio, from 0 to 1.")
     min_total_rps: float | None = Field(default=None, ge=0, description="Optional minimum required total requests per second.")
     variables: dict[str, Any] = Field(default_factory=dict, description="Additional CI variables captured for audit.")
+
+
+class BaselineProfileCreate(BaseModel):
+    tenant_id: str = Field(description="Owner tenant id.")
+    project_id: str = Field(description="Project id that can use this baseline profile.")
+    name: str = Field(description="Human-readable baseline profile name.")
+    max_p95_ms: float = Field(default=500, ge=0, description="Maximum allowed p95 response time in milliseconds.")
+    max_fail_ratio: float = Field(default=0.05, ge=0, description="Maximum allowed failure ratio, from 0 to 1.")
+    min_total_rps: float | None = Field(default=None, ge=0, description="Optional minimum required total requests per second.")

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import {
   collectRun,
   compareReports,
+  createBaselineProfile,
   createRunFromPlan,
   createScriptVersion,
   createTestPlan,
@@ -15,6 +16,7 @@ import {
   listReports,
   listApprovalRequests,
   listApiTokens,
+  listBaselineProfiles,
   listDnsSnapshots,
   listProjects,
   listQuotas,
@@ -34,6 +36,7 @@ import {
 import type {
   ApprovalRequest,
   ApiToken,
+  BaselineProfile,
   DnsResolutionSnapshot,
   LocustStatsResponse,
   Project,
@@ -52,7 +55,7 @@ import type {
   UserAccount,
 } from './types';
 
-type ViewKey = 'dashboard' | 'tenants' | 'access' | 'projects' | 'scripts' | 'plans' | 'runs' | 'governance' | 'reports';
+type ViewKey = 'dashboard' | 'tenants' | 'access' | 'projects' | 'scripts' | 'plans' | 'runs' | 'governance' | 'reports' | 'ci';
 type LocustTab = 'Statistics' | 'Charts' | 'Failures' | 'Workers' | 'Logs' | 'Diagnostics' | 'Download Data';
 
 const navigation: Array<{ key: ViewKey; label: string; cn: string }> = [
@@ -65,6 +68,7 @@ const navigation: Array<{ key: ViewKey; label: string; cn: string }> = [
   { key: 'runs', label: 'Test Runs', cn: '压测任务' },
   { key: 'governance', label: 'Governance', cn: '治理' },
   { key: 'reports', label: 'Reports', cn: '报告' },
+  { key: 'ci', label: 'CI Baselines', cn: '基线' },
 ];
 const locustTabs: LocustTab[] = ['Statistics', 'Charts', 'Failures', 'Workers', 'Logs', 'Diagnostics', 'Download Data'];
 const expectedReportArtifacts = ['HTML Report', 'Requests CSV', 'Failures CSV', 'Exceptions CSV', 'History CSV', 'Master Log'];
@@ -78,6 +82,7 @@ const error = ref('');
 const tenants = ref<Tenant[]>([]);
 const users = ref<UserAccount[]>([]);
 const apiTokens = ref<ApiToken[]>([]);
+const baselineProfiles = ref<BaselineProfile[]>([]);
 const projects = ref<Project[]>([]);
 const scripts = ref<ScriptVersion[]>([]);
 const plans = ref<TestPlan[]>([]);
@@ -113,7 +118,15 @@ const planForm = ref({
   worker_count: 1,
 });
 const userForm = ref({ tenant_id: 'tenant-demo', username: 'perf-user', password: 'secret', role: 'project_member' });
-const apiTokenForm = ref({ name: 'ci token', scopes: 'runs:write,reports:read' });
+const apiTokenForm = ref({ name: 'ci token', scopes: 'ci:run,reports:read' });
+const baselineProfileForm = ref({
+  tenant_id: 'tenant-demo',
+  project_id: 'project-demo',
+  name: 'Main branch baseline',
+  max_p95_ms: 500,
+  max_fail_ratio: 0.05,
+  min_total_rps: 1,
+});
 const createdTokenSecret = ref('');
 
 const activeRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value) ?? runs.value[0]);
@@ -135,10 +148,11 @@ async function withLoading(task: () => Promise<void>) {
 
 async function refreshAll() {
   await withLoading(async () => {
-    const [tenantRows, userRows, tokenRows, projectRows, scriptRows, planRows, runRows, targetRows, quotaRows, approvalRows, dnsRows, quotaUsageRows, reportRows] = await Promise.all([
+    const [tenantRows, userRows, tokenRows, profileRows, projectRows, scriptRows, planRows, runRows, targetRows, quotaRows, approvalRows, dnsRows, quotaUsageRows, reportRows] = await Promise.all([
       listTenants(),
       listUsers(),
       listApiTokens(),
+      listBaselineProfiles(),
       listProjects(),
       listScripts(),
       listTestPlans(),
@@ -153,6 +167,7 @@ async function refreshAll() {
     tenants.value = tenantRows;
     users.value = userRows;
     apiTokens.value = tokenRows;
+    baselineProfiles.value = profileRows;
     projects.value = projectRows;
     scripts.value = scriptRows;
     plans.value = planRows;
@@ -255,6 +270,13 @@ async function revokeToken(token: ApiToken) {
   await withLoading(async () => {
     await revokeApiToken(token.id);
     apiTokens.value = await listApiTokens();
+  });
+}
+
+async function createBaselineProfileFromForm() {
+  await withLoading(async () => {
+    await createBaselineProfile(baselineProfileForm.value);
+    baselineProfiles.value = await listBaselineProfiles();
   });
 }
 
@@ -710,6 +732,33 @@ onMounted(refreshAll);
             <strong>{{ reportComparison?.deltas.fail_ratio?.delta ?? 0 }}</strong>
           </div>
         </div>
+      </section>
+
+      <section v-if="activeView === 'ci'" class="content surface">
+        <div class="surface-title"><h2>CI Baselines</h2><span>{{ baselineProfiles.length }} profiles</span></div>
+        <div class="surface-title compact-title"><h3>Baseline Profiles</h3><span>reusable thresholds</span></div>
+        <div class="form-grid compact">
+          <label><span>Name</span><input v-model="baselineProfileForm.name" /></label>
+          <label><span>Tenant</span><input v-model="baselineProfileForm.tenant_id" /></label>
+          <label><span>Project</span><input v-model="baselineProfileForm.project_id" /></label>
+          <label><span>Max P95</span><input v-model.number="baselineProfileForm.max_p95_ms" type="number" /></label>
+          <label><span>Max Fail Ratio</span><input v-model.number="baselineProfileForm.max_fail_ratio" type="number" step="0.001" /></label>
+          <label><span>Min RPS</span><input v-model.number="baselineProfileForm.min_total_rps" type="number" /></label>
+          <div class="form-actions"><button class="primary" type="button" @click="createBaselineProfileFromForm">Create Baseline Profile</button></div>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Project</th><th>Max P95</th><th>Max Fail Ratio</th><th>Min RPS</th><th>ID</th></tr></thead>
+          <tbody>
+            <tr v-for="profile in baselineProfiles" :key="profile.id">
+              <td>{{ profile.name }}</td>
+              <td>{{ profile.project_id }}</td>
+              <td>{{ profile.max_p95_ms }}</td>
+              <td>{{ profile.max_fail_ratio }}</td>
+              <td>{{ profile.min_total_rps ?? '-' }}</td>
+              <td>{{ profile.id }}</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
     </main>
   </div>

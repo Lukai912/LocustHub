@@ -312,11 +312,24 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     INDEX idx_audit_tenant_time (tenant_id, created_at)
 );
 
+CREATE TABLE IF NOT EXISTS baseline_profiles (
+    id VARCHAR(64) PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    project_id VARCHAR(64) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    max_p95_ms DOUBLE NOT NULL,
+    max_fail_ratio DOUBLE NOT NULL,
+    min_total_rps DOUBLE NULL,
+    created_at VARCHAR(64) NOT NULL,
+    INDEX idx_baseline_profile_project (tenant_id, project_id)
+);
+
 CREATE TABLE IF NOT EXISTS baseline_runs (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,
     project_id VARCHAR(64) NOT NULL,
     test_run_id VARCHAR(64) NOT NULL,
+    baseline_profile_id VARCHAR(64) NULL,
     ci_provider VARCHAR(64) NOT NULL,
     pipeline_id VARCHAR(128) NOT NULL,
     job_id VARCHAR(128) NOT NULL,

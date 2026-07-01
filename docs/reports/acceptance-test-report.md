@@ -693,3 +693,35 @@ cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage17_egress_governa
 
 - 当前阶段不做运行中的周期性 DNS 复核，域名解析变化需要重新创建任务。
 - NetworkPolicy 仍依赖集群 CNI 对 NetworkPolicy 的实际支持。
+
+## 25. 阶段 18 CI 基线 Profile 与 Token Scope 验收
+
+阶段 18 新增范围：
+
+- `GET /api/v1/ci/baseline-profiles` 和 `POST /api/v1/ci/baseline-profiles`。
+- `POST /api/v1/ci/performance-runs` 支持 `baseline_profile_id`。
+- API Token 调用 CI run 必须包含 `ci:run` scope。
+- `scripts/run_ci_baseline.py` 支持 `--baseline-profile-id`。
+- 管理后台新增 `CI Baselines` 页面和 baseline profile 表单。
+- 阶段 18 文档：`docs/stage18-ci-baseline-profiles.md`
+
+阶段 18 自动化测试覆盖：
+
+- baseline profile 可以驱动 CI 阈值判定。
+- 缺少 `ci:run` scope 的 API Token 无法发起 CI run。
+- CLI 可以把 `baseline_profile_id` 写入请求 payload。
+- Stage9 旧请求级阈值模式继续通过。
+- 前端结构包含 CI Baselines、Baseline Profiles、Create Baseline Profile、Max P95、Min RPS。
+
+阶段 18 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage18_ci_baseline_profiles.py tests/test_stage9_ci_baseline_pipeline.py -q -> 7 passed in 0.79s
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 543ms
+```
+
+阶段 18 验收边界：
+
+- 当前阶段不实现 profile 编辑和删除。
+- 当前阶段要求 CI 显式传入 profile id，不做分支自动匹配。

@@ -1,6 +1,7 @@
 import type {
   ApiToken,
   ApprovalRequest,
+  BaselineProfile,
   DnsResolutionSnapshot,
   LocustStatsResponse,
   Project,
@@ -176,6 +177,24 @@ export async function listReports(): Promise<ReportCollection> {
 export async function compareReports(baseRunId: string, candidateRunId: string): Promise<ReportComparison> {
   const params = new URLSearchParams({ base_run_id: baseRunId, candidate_run_id: candidateRunId });
   return request<ReportComparison>(`/reports/compare?${params.toString()}`);
+}
+
+export async function listBaselineProfiles(): Promise<BaselineProfile[]> {
+  return request<BaselineProfile[]>('/ci/baseline-profiles');
+}
+
+export async function createBaselineProfile(payload: {
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  max_p95_ms: number;
+  max_fail_ratio: number;
+  min_total_rps?: number | null;
+}): Promise<BaselineProfile> {
+  return request<BaselineProfile>('/ci/baseline-profiles', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function listTargets(): Promise<TargetWhitelist[]> {

@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from app.core.security import require_token, verify_password
 from app.models.schemas import (
     ApiTokenCreate,
+    BaselineProfileCreate,
     ApprovalResolve,
     BaselineRunCreate,
     LoginRequest,
@@ -50,6 +51,10 @@ def create_router(deps: dict) -> APIRouter:
     def ensure_tenant_access(tenant_id: str, user: dict) -> None:
         if user["role"] != "admin" and user["tenant_id"] != tenant_id:
             raise HTTPException(status_code=403, detail="Tenant access denied")
+
+    def require_scope(user: dict, scope: str) -> None:
+        if user.get("api_token_id") and scope not in user.get("scopes", []):
+            raise HTTPException(status_code=403, detail=f"API token requires {scope} scope")
 
     def scoped_rows(table: str, user: dict) -> list[dict]:
         rows = repo.list_table(table)
@@ -450,10 +455,31 @@ def create_router(deps: dict) -> APIRouter:
         ensure_tenant_access(tenant_id, user)
         return repo.update_quota(tenant_id, payload.model_dump())
 
+    @router.get("/ci/baseline-profiles", tags=["CI Baselines"], summary="List CI baseline profiles")
+    def baseline_profiles(user: dict = Depends(current_user)) -> list[dict]:
+        """List reusable CI threshold profiles visible to the current user."""
+        return scoped_rows("baseline_profiles", user)
+
+    @router.post("/ci/baseline-profiles", tags=["CI Baselines"], summary="Create CI baseline profile")
+    def create_baseline_profile(payload: BaselineProfileCreate, user: dict = Depends(current_user)) -> dict:
+        """Create a reusable threshold profile for CI-triggered performance runs."""
+        ensure_tenant_access(payload.tenant_id, user)
+        return repo.insert_baseline_profile(payload.model_dump())
+
     @router.post("/ci/performance-runs", tags=["CI Baselines"], summary="Create CI performance baseline run")
     def create_ci_run(payload: BaselineRunCreate, user: dict = Depends(current_user)) -> dict:
         """Create and start a CI-triggered performance run, then evaluate request thresholds."""
+        require_scope(user, "ci:run")
         ensure_tenant_access(payload.tenant_id, user)
+        threshold_source = payload.model_dump()
+        if payload.baseline_profile_id:
+            profile = repo.get_baseline_profile(payload.baseline_profile_id)
+            if not profile:
+                raise HTTPException(status_code=404, detail="Baseline profile not found")
+            ensure_tenant_access(profile["tenant_id"], user)
+            if profile["project_id"] != payload.project_id:
+                raise HTTPException(status_code=400, detail="Baseline profile project mismatch")
+            threshold_source = profile
         run = repo.create_run_from_plan(
             {
                 "tenant_id": payload.tenant_id,
@@ -473,17 +499,18 @@ def create_router(deps: dict) -> APIRouter:
         p95 = latest.get("current_p95", 0)
         fail_ratio = latest.get("fail_ratio", 0)
         total_rps = latest.get("total_rps", 0)
-        if p95 > payload.max_p95_ms:
-            violations.append({"metric": "p95", "operator": "<=", "expected": payload.max_p95_ms, "actual": p95})
-        if fail_ratio > payload.max_fail_ratio:
-            violations.append({"metric": "fail_ratio", "operator": "<=", "expected": payload.max_fail_ratio, "actual": fail_ratio})
-        if payload.min_total_rps is not None and total_rps < payload.min_total_rps:
-            violations.append({"metric": "total_rps", "operator": ">=", "expected": payload.min_total_rps, "actual": total_rps})
+        if p95 > threshold_source["max_p95_ms"]:
+            violations.append({"metric": "p95", "operator": "<=", "expected": threshold_source["max_p95_ms"], "actual": p95})
+        if fail_ratio > threshold_source["max_fail_ratio"]:
+            violations.append({"metric": "fail_ratio", "operator": "<=", "expected": threshold_source["max_fail_ratio"], "actual": fail_ratio})
+        if threshold_source.get("min_total_rps") is not None and total_rps < threshold_source["min_total_rps"]:
+            violations.append({"metric": "total_rps", "operator": ">=", "expected": threshold_source["min_total_rps"], "actual": total_rps})
         baseline = repo.insert_baseline_run(
             {
                 "tenant_id": payload.tenant_id,
                 "project_id": payload.project_id,
                 "test_run_id": run["id"],
+                "baseline_profile_id": payload.baseline_profile_id,
                 "ci_provider": payload.ci_provider,
                 "pipeline_id": payload.pipeline_id,
                 "job_id": payload.job_id,
@@ -494,7 +521,14 @@ def create_router(deps: dict) -> APIRouter:
                 "violations": violations,
             }
         )
-        return {"test_run_id": run["id"], "baseline_run_id": baseline["id"], "status": started["status"], "conclusion": baseline["conclusion"], "violations": violations}
+        return {
+            "test_run_id": run["id"],
+            "baseline_run_id": baseline["id"],
+            "baseline_profile_id": baseline.get("baseline_profile_id"),
+            "status": started["status"],
+            "conclusion": baseline["conclusion"],
+            "violations": violations,
+        }
 
     @router.get("/ci/performance-runs/{test_run_id}/result", tags=["CI Baselines"], summary="Get CI performance baseline result")
     def ci_run_result(test_run_id: str, user: dict = Depends(current_user)) -> dict:
@@ -506,6 +540,7 @@ def create_router(deps: dict) -> APIRouter:
         return {
             "test_run_id": run["id"],
             "baseline_run_id": baseline["id"],
+            "baseline_profile_id": baseline.get("baseline_profile_id"),
             "status": baseline["status"],
             "conclusion": baseline["conclusion"],
             "violations": baseline.get("violations", []),

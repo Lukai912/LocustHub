@@ -334,11 +334,24 @@ class SQLiteRepository:
             )
             """,
             """
+            CREATE TABLE IF NOT EXISTS baseline_profiles (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                max_p95_ms REAL NOT NULL,
+                max_fail_ratio REAL NOT NULL,
+                min_total_rps REAL,
+                created_at TEXT NOT NULL
+            )
+            """,
+            """
             CREATE TABLE IF NOT EXISTS baseline_runs (
                 id TEXT PRIMARY KEY,
                 tenant_id TEXT NOT NULL,
                 project_id TEXT NOT NULL,
                 test_run_id TEXT NOT NULL,
+                baseline_profile_id TEXT,
                 ci_provider TEXT NOT NULL,
                 pipeline_id TEXT NOT NULL,
                 job_id TEXT NOT NULL,
@@ -360,6 +373,9 @@ class SQLiteRepository:
             report_columns = [row[1] for row in conn.execute("PRAGMA table_info(locust_report_summaries)").fetchall()]
             if "exceptions_csv_artifact_id" not in report_columns:
                 conn.execute("ALTER TABLE locust_report_summaries ADD COLUMN exceptions_csv_artifact_id TEXT")
+            baseline_columns = [row[1] for row in conn.execute("PRAGMA table_info(baseline_runs)").fetchall()]
+            if "baseline_profile_id" not in baseline_columns:
+                conn.execute("ALTER TABLE baseline_runs ADD COLUMN baseline_profile_id TEXT")
 
     def seed_demo(self, token: str) -> None:
         with self.db.connect() as conn:
@@ -1066,12 +1082,13 @@ class SQLiteRepository:
         record = {"id": new_id("baseline"), "created_at": now_iso(), **item}
         with self.db.connect() as conn:
             conn.execute(
-                "INSERT INTO baseline_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO baseline_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     record["id"],
                     record["tenant_id"],
                     record["project_id"],
                     record["test_run_id"],
+                    record.get("baseline_profile_id"),
                     record["ci_provider"],
                     record["pipeline_id"],
                     record["job_id"],
@@ -1084,6 +1101,28 @@ class SQLiteRepository:
                 ),
             )
         return record
+
+    def insert_baseline_profile(self, item: dict) -> dict:
+        record = {"id": new_id("profile"), "created_at": now_iso(), **item}
+        with self.db.connect() as conn:
+            conn.execute(
+                "INSERT INTO baseline_profiles VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    record["id"],
+                    record["tenant_id"],
+                    record["project_id"],
+                    record["name"],
+                    record["max_p95_ms"],
+                    record["max_fail_ratio"],
+                    record.get("min_total_rps"),
+                    record["created_at"],
+                ),
+            )
+        return record
+
+    def get_baseline_profile(self, profile_id: str) -> dict | None:
+        with self.db.connect() as conn:
+            return row_to_dict(conn.execute("SELECT * FROM baseline_profiles WHERE id = ?", (profile_id,)).fetchone())
 
     def get_baseline_by_run(self, test_run_id: str) -> dict | None:
         with self.db.connect() as conn:

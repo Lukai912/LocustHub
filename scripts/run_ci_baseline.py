@@ -15,6 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tenant-id", required=True)
     parser.add_argument("--project-id", required=True)
     parser.add_argument("--test-plan-id", required=True)
+    parser.add_argument("--baseline-profile-id", help="Optional LocustHub baseline profile id.")
     parser.add_argument("--ci-provider", default="local")
     parser.add_argument("--pipeline-id", default="local")
     parser.add_argument("--job-id", default="perf-baseline")
@@ -25,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-total-rps", type=float)
     parser.add_argument("--output", default="ci-baseline-result.json", help="Path for the JSON result artifact.")
     parser.add_argument("--mock-response-json", help="Test-only JSON response that bypasses the HTTP call.")
+    parser.add_argument("--capture-payload", help="Test-only path that records the JSON request payload.")
     return parser.parse_args()
 
 
@@ -46,23 +48,30 @@ def post_json(api_base_url: str, token: str, payload: dict) -> dict:
 
 def main() -> int:
     args = parse_args()
+    payload = {
+        "tenant_id": args.tenant_id,
+        "project_id": args.project_id,
+        "test_plan_id": args.test_plan_id,
+        "ci_provider": args.ci_provider,
+        "pipeline_id": args.pipeline_id,
+        "job_id": args.job_id,
+        "commit_sha": args.commit_sha,
+        "branch": args.branch,
+        "max_p95_ms": args.max_p95_ms,
+        "max_fail_ratio": args.max_fail_ratio,
+    }
+    if args.baseline_profile_id:
+        payload["baseline_profile_id"] = args.baseline_profile_id
+    if args.min_total_rps is not None:
+        payload["min_total_rps"] = args.min_total_rps
+    if args.capture_payload:
+        capture_path = Path(args.capture_payload)
+        capture_path.parent.mkdir(parents=True, exist_ok=True)
+        capture_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
     if args.mock_response_json:
         result = json.loads(args.mock_response_json)
     else:
-        payload = {
-            "tenant_id": args.tenant_id,
-            "project_id": args.project_id,
-            "test_plan_id": args.test_plan_id,
-            "ci_provider": args.ci_provider,
-            "pipeline_id": args.pipeline_id,
-            "job_id": args.job_id,
-            "commit_sha": args.commit_sha,
-            "branch": args.branch,
-            "max_p95_ms": args.max_p95_ms,
-            "max_fail_ratio": args.max_fail_ratio,
-        }
-        if args.min_total_rps is not None:
-            payload["min_total_rps"] = args.min_total_rps
         result = post_json(args.api_base_url, args.token, payload)
 
     output = Path(args.output)
@@ -81,4 +90,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

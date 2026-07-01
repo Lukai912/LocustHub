@@ -26,7 +26,7 @@
       "total_rps": 5.4
     },
     "openapi": {
-      "paths": 37
+      "paths": 38
     },
     "report": {
       "p95_response_time": 248.0,

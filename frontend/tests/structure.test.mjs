@@ -22,7 +22,7 @@ assert.equal(pkg.scripts.dev, 'vite --host 127.0.0.1');
 assert.equal(pkg.scripts.build, 'vue-tsc --noEmit --pretty false && node scripts/build.mjs');
 
 const client = readFileSync(join(root, 'src/api/client.ts'), 'utf8');
-for (const api of ['listTestRuns', 'startRun', 'collectRun', 'stopRun', 'getLocustStats', 'listApprovalRequests', 'listDnsSnapshots', 'listQuotaUsageSnapshots', 'validateLocustfile', 'createScriptVersion', 'createTestPlan', 'cloneTestPlan', 'getRunDiagnostics', 'rerunTestRun', 'listUsers', 'createUser', 'listApiTokens', 'createApiToken', 'revokeApiToken', 'listReports', 'compareReports']) {
+for (const api of ['listTestRuns', 'startRun', 'collectRun', 'stopRun', 'getLocustStats', 'listApprovalRequests', 'listDnsSnapshots', 'listQuotaUsageSnapshots', 'validateLocustfile', 'createScriptVersion', 'createTestPlan', 'cloneTestPlan', 'getRunDiagnostics', 'rerunTestRun', 'listUsers', 'createUser', 'listApiTokens', 'createApiToken', 'revokeApiToken', 'listReports', 'compareReports', 'listBaselineProfiles', 'createBaselineProfile']) {
   assert.match(client, new RegExp(`export async function ${api}`), `${api} must be exported`);
 }
 
@@ -34,7 +34,7 @@ assert.match(types, /export interface DnsResolutionSnapshot/);
 assert.match(types, /export interface QuotaUsageSnapshot/);
 
 const app = readFileSync(join(root, 'src/App.vue'), 'utf8');
-for (const label of ['Dashboard', 'Tenants', 'Projects', 'Scripts', 'Test Plans', 'Test Runs', 'Governance', 'Reports']) {
+for (const label of ['Dashboard', 'Tenants', 'Projects', 'Scripts', 'Test Plans', 'Test Runs', 'Governance', 'Reports', 'CI Baselines']) {
   assert.match(app, new RegExp(label), `${label} navigation label must exist`);
 }
 for (const label of ['Approval Requests', 'Admission Snapshots']) {
@@ -57,4 +57,7 @@ for (const label of ['Access', 'Create User', 'Create API Token', 'Revoke Token'
 }
 for (const label of ['Report History', 'Report Compare', 'P95 Delta', 'Fail Ratio Delta']) {
   assert.match(app, new RegExp(label), `${label} report comparison label must exist`);
+}
+for (const label of ['Baseline Profiles', 'Create Baseline Profile', 'Max P95', 'Min RPS']) {
+  assert.match(app, new RegExp(label), `${label} CI baseline label must exist`);
 }

@@ -41,6 +41,17 @@ export interface ApiToken {
   created_at: string;
 }
 
+export interface BaselineProfile {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  name: string;
+  max_p95_ms: number;
+  max_fail_ratio: number;
+  min_total_rps?: number | null;
+  created_at: string;
+}
+
 export interface Project {
   id: string;
   tenant_id: string;
