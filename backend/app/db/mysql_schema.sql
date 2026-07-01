@@ -17,6 +17,18 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_users_tenant (tenant_id)
 );
 
+CREATE TABLE IF NOT EXISTS api_tokens (
+    id VARCHAR(64) PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    user_id VARCHAR(64) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    scopes_json JSON NOT NULL,
+    revoked_at VARCHAR(64),
+    created_at VARCHAR(64) NOT NULL,
+    INDEX idx_api_tokens_tenant (tenant_id, created_at)
+);
+
 CREATE TABLE IF NOT EXISTS projects (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,

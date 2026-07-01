@@ -606,3 +606,33 @@ cd frontend && npm run build -> passed, built in 532ms
 
 - diagnostics 先提供控制面可解释性，不直接拉取 Kubernetes pod events。
 - rerun 创建新任务，不自动启动，避免误触发压测流量。
+
+## 22. 阶段 15 RBAC 与 API Token 验收
+
+阶段 15 新增范围：
+
+- `GET /api/v1/users` 和 `POST /api/v1/users` 用户管理接口。
+- `GET /api/v1/api-tokens`、`POST /api/v1/api-tokens`、`POST /api/v1/api-tokens/{token_id}/revoke` 自动化 token 管理接口。
+- `/api/v1/me` 支持通过 API Token 解析调用人和 scopes。
+- Access 页面支持创建用户、创建 API Token、撤销 API Token。
+- 阶段 15 文档：`docs/stage15-rbac-api-tokens.md`
+
+阶段 15 自动化测试覆盖：
+
+- admin 可以创建用户，新用户可以登录。
+- API Token 可以创建、访问 `/me`，撤销后不能继续使用。
+- viewer 不能创建用户。
+- 前端结构包含 Access、Create User、Create API Token、Revoke Token。
+
+阶段 15 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage15_rbac_api_tokens.py -q -> 3 passed in 0.54s
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 544ms
+```
+
+阶段 15 验收边界：
+
+- 当前阶段先提供基础 RBAC 和 token 生命周期，细粒度 scope enforcement 留给 CI/API 调用深化阶段。
+- API Token 明文只在创建响应中返回，列表和撤销响应不返回 token secret。

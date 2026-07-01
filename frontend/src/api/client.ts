@@ -1,4 +1,5 @@
 import type {
+  ApiToken,
   ApprovalRequest,
   DnsResolutionSnapshot,
   LocustStatsResponse,
@@ -13,6 +14,7 @@ import type {
   TenantQuota,
   TestPlan,
   TestRun,
+  UserAccount,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
@@ -37,6 +39,32 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export async function listTenants(): Promise<Tenant[]> {
   return request<Tenant[]>('/tenants');
+}
+
+export async function listUsers(): Promise<UserAccount[]> {
+  return request<UserAccount[]>('/users');
+}
+
+export async function createUser(payload: { tenant_id: string; username: string; password: string; role: string }): Promise<UserAccount> {
+  return request<UserAccount>('/users', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listApiTokens(): Promise<ApiToken[]> {
+  return request<ApiToken[]>('/api-tokens');
+}
+
+export async function createApiToken(payload: { name: string; scopes: string[] }): Promise<ApiToken> {
+  return request<ApiToken>('/api-tokens', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function revokeApiToken(tokenId: string): Promise<ApiToken> {
+  return request<ApiToken>(`/api-tokens/${tokenId}/revoke`, { method: 'POST' });
 }
 
 export async function listProjects(): Promise<Project[]> {

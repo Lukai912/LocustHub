@@ -3,6 +3,7 @@
     "auth": {
       "id": "user-admin",
       "role": "admin",
+      "scopes": [],
       "tenant_id": "tenant-demo",
       "username": "admin"
     },
@@ -25,7 +26,7 @@
       "total_rps": 5.4
     },
     "openapi": {
-      "paths": 32
+      "paths": 35
     },
     "report": {
       "p95_response_time": 248.0,

@@ -6,10 +6,13 @@ import {
   createScriptVersion,
   createTestPlan,
   cloneTestPlan,
+  createApiToken,
   getRunDiagnostics,
   getLocustStats,
   getReport,
+  createUser,
   listApprovalRequests,
+  listApiTokens,
   listDnsSnapshots,
   listProjects,
   listQuotas,
@@ -19,6 +22,8 @@ import {
   listTenants,
   listTestPlans,
   listTestRuns,
+  listUsers,
+  revokeApiToken,
   startRun,
   stopRun,
   rerunTestRun,
@@ -26,6 +31,7 @@ import {
 } from './api/client';
 import type {
   ApprovalRequest,
+  ApiToken,
   DnsResolutionSnapshot,
   LocustStatsResponse,
   Project,
@@ -39,14 +45,16 @@ import type {
   TenantQuota,
   TestPlan,
   TestRun,
+  UserAccount,
 } from './types';
 
-type ViewKey = 'dashboard' | 'tenants' | 'projects' | 'scripts' | 'plans' | 'runs' | 'governance' | 'reports';
+type ViewKey = 'dashboard' | 'tenants' | 'access' | 'projects' | 'scripts' | 'plans' | 'runs' | 'governance' | 'reports';
 type LocustTab = 'Statistics' | 'Charts' | 'Failures' | 'Workers' | 'Logs' | 'Diagnostics' | 'Download Data';
 
 const navigation: Array<{ key: ViewKey; label: string; cn: string }> = [
   { key: 'dashboard', label: 'Dashboard', cn: '仪表盘' },
   { key: 'tenants', label: 'Tenants', cn: '租户' },
+  { key: 'access', label: 'Access', cn: '权限' },
   { key: 'projects', label: 'Projects', cn: '项目' },
   { key: 'scripts', label: 'Scripts', cn: '脚本' },
   { key: 'plans', label: 'Test Plans', cn: '压测计划' },
@@ -64,6 +72,8 @@ const loading = ref(false);
 const error = ref('');
 
 const tenants = ref<Tenant[]>([]);
+const users = ref<UserAccount[]>([]);
+const apiTokens = ref<ApiToken[]>([]);
 const projects = ref<Project[]>([]);
 const scripts = ref<ScriptVersion[]>([]);
 const plans = ref<TestPlan[]>([]);
@@ -96,6 +106,9 @@ const planForm = ref({
   run_time_seconds: 60,
   worker_count: 1,
 });
+const userForm = ref({ tenant_id: 'tenant-demo', username: 'perf-user', password: 'secret', role: 'project_member' });
+const apiTokenForm = ref({ name: 'ci token', scopes: 'runs:write,reports:read' });
+const createdTokenSecret = ref('');
 
 const activeRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value) ?? runs.value[0]);
 const runningCount = computed(() => runs.value.filter((run) => run.status === 'RUNNING').length);
@@ -116,8 +129,10 @@ async function withLoading(task: () => Promise<void>) {
 
 async function refreshAll() {
   await withLoading(async () => {
-    const [tenantRows, projectRows, scriptRows, planRows, runRows, targetRows, quotaRows, approvalRows, dnsRows, quotaUsageRows] = await Promise.all([
+    const [tenantRows, userRows, tokenRows, projectRows, scriptRows, planRows, runRows, targetRows, quotaRows, approvalRows, dnsRows, quotaUsageRows] = await Promise.all([
       listTenants(),
+      listUsers(),
+      listApiTokens(),
       listProjects(),
       listScripts(),
       listTestPlans(),
@@ -129,6 +144,8 @@ async function refreshAll() {
       listQuotaUsageSnapshots(),
     ]);
     tenants.value = tenantRows;
+    users.value = userRows;
+    apiTokens.value = tokenRows;
     projects.value = projectRows;
     scripts.value = scriptRows;
     plans.value = planRows;
@@ -195,6 +212,28 @@ async function rerunActiveRun() {
     runs.value = await listTestRuns();
     selectedRunId.value = created.id;
     await refreshRunDetail(created.id);
+  });
+}
+
+async function createUserFromForm() {
+  await withLoading(async () => {
+    await createUser(userForm.value);
+    users.value = await listUsers();
+  });
+}
+
+async function createTokenFromForm() {
+  await withLoading(async () => {
+    const token = await createApiToken({ name: apiTokenForm.value.name, scopes: apiTokenForm.value.scopes.split(',').map((scope) => scope.trim()).filter(Boolean) });
+    createdTokenSecret.value = token.token ?? '';
+    apiTokens.value = await listApiTokens();
+  });
+}
+
+async function revokeToken(token: ApiToken) {
+  await withLoading(async () => {
+    await revokeApiToken(token.id);
+    apiTokens.value = await listApiTokens();
   });
 }
 
@@ -360,6 +399,44 @@ onMounted(refreshAll);
           <thead><tr><th>Name</th><th>Slug</th><th>Status</th><th>ID</th></tr></thead>
           <tbody><tr v-for="tenant in tenants" :key="tenant.id"><td>{{ tenant.name }}</td><td>{{ tenant.slug }}</td><td>{{ tenant.status }}</td><td>{{ tenant.id }}</td></tr></tbody>
         </table>
+      </section>
+
+      <section v-if="activeView === 'access'" class="content surface">
+        <div class="surface-title"><h2>Access</h2><span>{{ users.length }} users · {{ apiTokens.length }} tokens</span></div>
+        <div class="split-layout flush">
+          <section>
+            <h3>Create User</h3>
+            <div class="form-grid compact">
+              <label><span>Tenant</span><input v-model="userForm.tenant_id" /></label>
+              <label><span>Username</span><input v-model="userForm.username" /></label>
+              <label><span>Password</span><input v-model="userForm.password" type="password" /></label>
+              <label><span>Role</span><input v-model="userForm.role" /></label>
+              <div class="form-actions"><button class="primary" type="button" @click="createUserFromForm">Create User</button></div>
+            </div>
+            <table>
+              <thead><tr><th>Username</th><th>Tenant</th><th>Role</th></tr></thead>
+              <tbody><tr v-for="item in users" :key="item.id"><td>{{ item.username }}</td><td>{{ item.tenant_id }}</td><td>{{ item.role }}</td></tr></tbody>
+            </table>
+          </section>
+          <section>
+            <h3>Create API Token</h3>
+            <div class="form-grid compact">
+              <label><span>Name</span><input v-model="apiTokenForm.name" /></label>
+              <label><span>Scopes</span><input v-model="apiTokenForm.scopes" /></label>
+              <div class="form-actions"><button class="primary" type="button" @click="createTokenFromForm">Create API Token</button></div>
+              <p v-if="createdTokenSecret" class="token-secret">Token: {{ createdTokenSecret }}</p>
+            </div>
+            <table>
+              <thead><tr><th>Name</th><th>Scopes</th><th>Revoked</th><th>Action</th></tr></thead>
+              <tbody>
+                <tr v-for="token in apiTokens" :key="token.id">
+                  <td>{{ token.name }}</td><td>{{ token.scopes.join(', ') }}</td><td>{{ token.revoked_at ?? '-' }}</td>
+                  <td><button type="button" :disabled="Boolean(token.revoked_at)" @click="revokeToken(token)">Revoke Token</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </div>
       </section>
 
       <section v-if="activeView === 'projects'" class="content surface">

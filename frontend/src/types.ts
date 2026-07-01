@@ -21,6 +21,26 @@ export interface Tenant {
   status: string;
 }
 
+export interface UserAccount {
+  id: string;
+  tenant_id: string;
+  username: string;
+  role: string;
+  token?: string;
+  created_at?: string;
+}
+
+export interface ApiToken {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  name: string;
+  token?: string;
+  scopes: string[];
+  revoked_at?: string | null;
+  created_at: string;
+}
+
 export interface Project {
   id: string;
   tenant_id: string;

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -40,6 +41,18 @@ class SQLiteRepository:
                 token TEXT NOT NULL UNIQUE,
                 role TEXT NOT NULL,
                 password_hash TEXT,
+                created_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS api_tokens (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                token TEXT NOT NULL UNIQUE,
+                scopes_json TEXT NOT NULL,
+                revoked_at TEXT,
                 created_at TEXT NOT NULL
             )
             """,
@@ -423,6 +436,75 @@ class SQLiteRepository:
     def get_user_by_username(self, username: str) -> dict | None:
         with self.db.connect() as conn:
             return row_to_dict(conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone())
+
+    def get_user_by_id(self, user_id: str) -> dict | None:
+        with self.db.connect() as conn:
+            return row_to_dict(conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
+
+    def insert_user(self, data: dict) -> dict:
+        now = now_iso()
+        item = {
+            "id": new_id("user"),
+            "token": f"user-token-{secrets.token_urlsafe(18)}",
+            "password_hash": hash_password(data["username"], data["password"]),
+            "created_at": now,
+            **data,
+        }
+        with self.db.connect() as conn:
+            conn.execute(
+                "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (item["id"], item["tenant_id"], item["username"], item["token"], item["role"], item["password_hash"], item["created_at"]),
+            )
+        return {key: value for key, value in item.items() if key != "password"}
+
+    def get_api_token(self, token: str) -> dict | None:
+        with self.db.connect() as conn:
+            record = row_to_dict(conn.execute("SELECT * FROM api_tokens WHERE token = ? AND revoked_at IS NULL", (token,)).fetchone())
+        if record and isinstance(record.get("scopes_json"), str):
+            # API token scopes are stored as JSON for MySQL/SQLite portability,
+            # but route handlers work with a typed list.
+            record["scopes"] = json.loads(record["scopes_json"])
+        return record
+
+    def list_api_tokens(self, tenant_id: str) -> list[dict]:
+        with self.db.connect() as conn:
+            rows = rows_to_dicts(conn.execute("SELECT * FROM api_tokens WHERE tenant_id = ? ORDER BY created_at DESC", (tenant_id,)).fetchall())
+        for row in rows:
+            row["scopes"] = json.loads(row["scopes_json"])
+            row.pop("scopes_json", None)
+            row.pop("token", None)
+        return rows
+
+    def insert_api_token(self, user: dict, data: dict) -> dict:
+        # The plaintext token is returned only from this creation method; list
+        # and revoke paths deliberately hide it so it cannot be recovered later.
+        record = {
+            "id": new_id("token"),
+            "tenant_id": user["tenant_id"],
+            "user_id": user["id"],
+            "name": data["name"],
+            "token": f"lhpat_{secrets.token_urlsafe(24)}",
+            "scopes": data["scopes"],
+            "revoked_at": None,
+            "created_at": now_iso(),
+        }
+        with self.db.connect() as conn:
+            conn.execute(
+                "INSERT INTO api_tokens VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (record["id"], record["tenant_id"], record["user_id"], record["name"], record["token"], json.dumps(record["scopes"]), record["revoked_at"], record["created_at"]),
+            )
+        return record
+
+    def revoke_api_token(self, token_id: str, tenant_id: str) -> dict | None:
+        now = now_iso()
+        with self.db.connect() as conn:
+            conn.execute("UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND tenant_id = ?", (now, token_id, tenant_id))
+            record = row_to_dict(conn.execute("SELECT * FROM api_tokens WHERE id = ? AND tenant_id = ?", (token_id, tenant_id)).fetchone())
+        if record and isinstance(record.get("scopes_json"), str):
+            record["scopes"] = json.loads(record["scopes_json"])
+            record.pop("scopes_json", None)
+            record.pop("token", None)
+        return record
 
     def get_by_id(self, table: str, item_id: str) -> dict | None:
         with self.db.connect() as conn:

@@ -32,6 +32,18 @@ class TenantCreate(BaseModel):
     slug: str = Field(description="Unique tenant slug used by operators and future URLs.")
 
 
+class UserCreate(BaseModel):
+    tenant_id: str = Field(description="Tenant id for the new user.")
+    username: str = Field(description="Unique login username.")
+    password: str = Field(description="Initial login password.")
+    role: Literal["admin", "project_member", "viewer"] = Field(default="viewer", description="RBAC role assigned to the user.")
+
+
+class ApiTokenCreate(BaseModel):
+    name: str = Field(description="Human-readable token name.")
+    scopes: list[str] = Field(default_factory=list, description="Token scopes reserved for CI and API clients.")
+
+
 class ProjectCreate(BaseModel):
     tenant_id: str = Field(description="Owner tenant id.")
     name: str = Field(description="Project display name.")

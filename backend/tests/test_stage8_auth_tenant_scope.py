@@ -49,6 +49,7 @@ def test_me_returns_persisted_user_context(monkeypatch, tmp_path):
         "username": "viewer",
         "tenant_id": "tenant-demo",
         "role": "viewer",
+        "scopes": [],
     }
 
 

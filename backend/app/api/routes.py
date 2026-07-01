@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 
 from app.core.security import require_token, verify_password
 from app.models.schemas import (
+    ApiTokenCreate,
     ApprovalResolve,
     BaselineRunCreate,
     LoginRequest,
@@ -17,6 +18,7 @@ from app.models.schemas import (
     TestPlanClone,
     TestPlanCreate,
     TestRunCreate,
+    UserCreate,
 )
 from app.services.scripts import validate_locustfile
 
@@ -30,9 +32,16 @@ def create_router(deps: dict) -> APIRouter:
 
     def current_user(token: str = Depends(require_token)) -> dict:
         user = repo.get_user_by_token(token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid bearer token")
-        return user
+        if user:
+            return user
+        api_token = repo.get_api_token(token)
+        if api_token:
+            user = repo.get_user_by_id(api_token["user_id"])
+            if user:
+                user["api_token_id"] = api_token["id"]
+                user["scopes"] = api_token.get("scopes", [])
+                return user
+        raise HTTPException(status_code=401, detail="Invalid bearer token")
 
     def ensure_admin(user: dict) -> None:
         if user["role"] != "admin":
@@ -49,6 +58,9 @@ def create_router(deps: dict) -> APIRouter:
         if table == "tenants":
             return [row for row in rows if row["id"] == user["tenant_id"]]
         return [row for row in rows if row.get("tenant_id") == user["tenant_id"]]
+
+    def public_user(user: dict) -> dict:
+        return {key: value for key, value in user.items() if key not in {"password_hash"}}
 
     def require_scoped_record(table: str, item_id: str, user: dict, detail: str) -> dict:
         item = repo.get_by_id(table, item_id)
@@ -113,7 +125,37 @@ def create_router(deps: dict) -> APIRouter:
     @router.get("/me", tags=["Auth"], summary="Get current user")
     def me(user: dict = Depends(current_user)) -> dict:
         """Return the authenticated user profile and tenant context from storage."""
-        return {"id": user["id"], "username": user["username"], "tenant_id": user["tenant_id"], "role": user["role"]}
+        return {"id": user["id"], "username": user["username"], "tenant_id": user["tenant_id"], "role": user["role"], "scopes": user.get("scopes", [])}
+
+    @router.get("/users", tags=["Auth"], summary="List users")
+    def users(user: dict = Depends(current_user)) -> list[dict]:
+        """List users in the current tenant, or all users for admins."""
+        return [public_user(item) for item in scoped_rows("users", user)]
+
+    @router.post("/users", tags=["Auth"], summary="Create user")
+    def create_user(payload: UserCreate, user: dict = Depends(current_user)) -> dict:
+        """Create a user with a tenant-scoped RBAC role."""
+        ensure_admin(user)
+        ensure_tenant_access(payload.tenant_id, user)
+        return public_user(repo.insert_user(payload.model_dump()))
+
+    @router.get("/api-tokens", tags=["Auth"], summary="List API tokens")
+    def api_tokens(user: dict = Depends(current_user)) -> list[dict]:
+        """List API tokens for the current tenant without exposing token secrets."""
+        return repo.list_api_tokens(user["tenant_id"])
+
+    @router.post("/api-tokens", tags=["Auth"], summary="Create API token")
+    def create_api_token(payload: ApiTokenCreate, user: dict = Depends(current_user)) -> dict:
+        """Create a revocable API token; the token secret is only returned once."""
+        return repo.insert_api_token(user, payload.model_dump())
+
+    @router.post("/api-tokens/{token_id}/revoke", tags=["Auth"], summary="Revoke API token")
+    def revoke_api_token(token_id: str, user: dict = Depends(current_user)) -> dict:
+        """Revoke an API token for the current tenant."""
+        token = repo.revoke_api_token(token_id, user["tenant_id"])
+        if not token:
+            raise HTTPException(status_code=404, detail="API token not found")
+        return token
 
     @router.get("/tenants", tags=["Tenants"], summary="List tenants")
     def tenants(user: dict = Depends(current_user)) -> list[dict]:
