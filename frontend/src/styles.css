@@ -30,6 +30,7 @@ button {
   color: #253044;
   background: #ffffff;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 button:disabled {
@@ -81,17 +82,28 @@ button.primary {
 
 .nav-item {
   width: 100%;
+  min-width: 0;
   height: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   border: 0;
   margin-top: 4px;
   color: inherit;
   background: transparent;
 }
 
+.nav-item span,
 .nav-item small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-item small {
+  flex: 0 1 auto;
   color: #8ea0ba;
 }
 
@@ -131,6 +143,7 @@ button.primary {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .content {

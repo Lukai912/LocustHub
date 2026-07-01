@@ -34,30 +34,30 @@ assert.match(types, /export interface DnsResolutionSnapshot/);
 assert.match(types, /export interface QuotaUsageSnapshot/);
 
 const app = readFileSync(join(root, 'src/App.vue'), 'utf8');
-for (const label of ['Dashboard', 'Tenants', 'Projects', 'Scripts', 'Test Plans', 'Test Runs', 'Governance', 'Reports', 'CI Baselines']) {
+for (const label of ['仪表盘', '租户', '访问控制', '项目', '脚本', '压测计划', '压测任务', '治理', '报告', 'CI 基线']) {
   assert.match(app, new RegExp(label), `${label} navigation label must exist`);
 }
-for (const label of ['Approval Requests', 'Admission Snapshots']) {
+for (const label of ['审批请求', '准入快照']) {
   assert.match(app, new RegExp(label), `${label} governance label must exist`);
 }
-for (const tab of ['Statistics', 'Charts', 'Failures', 'Workers', 'Logs', 'Download Data']) {
+for (const tab of ['统计', '图表', '失败', 'Worker', '日志', '下载数据']) {
   assert.match(app, new RegExp(tab), `${tab} Locust tab must exist`);
 }
-for (const label of ['RPS', 'Failures/s', 'Response Times', 'User Count', 'Master Log', 'HTML Report', 'Requests CSV', 'Failures CSV', 'Exceptions CSV', 'History CSV']) {
+for (const label of ['RPS', '失败/秒', '响应时间', '用户数', 'Master 日志', 'HTML 报告', '请求 CSV', '失败 CSV', '异常 CSV', '历史 CSV']) {
   assert.match(app, new RegExp(label), `${label} Locust WebUI detail label must exist`);
 }
-for (const label of ['Validate Locustfile', 'Create Script Version', 'Create Test Plan', 'Clone Plan']) {
+for (const label of ['校验 Locustfile', '创建脚本版本', '创建压测计划', '复制计划']) {
   assert.match(app, new RegExp(label), `${label} script and plan management label must exist`);
 }
-for (const label of ['Diagnostics', 'Rerun', 'Recommendations', 'Lifecycle Events']) {
+for (const label of ['诊断', '重跑', '建议', '生命周期事件']) {
   assert.match(app, new RegExp(label), `${label} run diagnostics label must exist`);
 }
-for (const label of ['Access', 'Create User', 'Create API Token', 'Revoke Token']) {
+for (const label of ['访问控制', '创建用户', '创建 API Token', '撤销 Token']) {
   assert.match(app, new RegExp(label), `${label} access management label must exist`);
 }
-for (const label of ['Report History', 'Report Compare', 'P95 Delta', 'Fail Ratio Delta']) {
+for (const label of ['报告历史', '报告对比', 'P95 变化', '失败率变化']) {
   assert.match(app, new RegExp(label), `${label} report comparison label must exist`);
 }
-for (const label of ['Baseline Profiles', 'Create Baseline Profile', 'Max P95', 'Min RPS']) {
+for (const label of ['基线 Profile', '创建基线 Profile', '最大 P95', '最小 RPS']) {
   assert.match(app, new RegExp(label), `${label} CI baseline label must exist`);
 }
