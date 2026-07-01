@@ -45,6 +45,7 @@ def mount_frontend(app: FastAPI, dist_dir: Path, api_prefix: str) -> None:
         "redoc",
         "openapi.json",
         "health",
+        "ready",
     )
 
     if not index_file.exists():
@@ -142,6 +143,17 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok", "app": settings.app_name}
+
+    @app.get("/ready")
+    def ready() -> dict:
+        """Return deployment-facing readiness details without exposing secrets."""
+        return {
+            "status": "ready",
+            "app": settings.app_name,
+            "database_backend": settings.database_backend,
+            "artifact_storage_provider": settings.artifact_storage_provider,
+            "lane_runtime_backend": settings.lane_runtime_backend,
+        }
 
     mount_frontend(app, settings.frontend_dist_dir, settings.api_prefix)
 

@@ -23,6 +23,7 @@ The first archived specification is available at:
 - [阶段 16 报告趋势与对比](docs/stage16-report-trends-compare.md)
 - [阶段 17 出网治理与 NetworkPolicy 收敛](docs/stage17-egress-governance.md)
 - [阶段 18 CI 基线 Profile 与 Token Scope](docs/stage18-ci-baseline-profiles.md)
+- [阶段 19 最终加固、Swagger 审计与 Runbook](docs/stage19-final-hardening-runbook.md)
 - [完整部署与使用 Runbook](docs/full-deployment-runbook.md)
 - [开发注释与 Swagger 规范](docs/development-guidelines.md)
 - [MVP 验收及测试报告](docs/reports/acceptance-test-report.md)

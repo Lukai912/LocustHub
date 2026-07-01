@@ -725,3 +725,37 @@ cd frontend && npm run build -> passed, built in 543ms
 
 - 当前阶段不实现 profile 编辑和删除。
 - 当前阶段要求 CI 显式传入 profile id，不做分支自动匹配。
+
+## 26. 阶段 19 最终加固、Swagger 审计与 Runbook 验收
+
+阶段 19 新增范围：
+
+- `GET /ready` 部署就绪接口。
+- acceptance smoke 覆盖 `/ready`。
+- 自动化测试审计 `/api/v1` 接口必须具备 Swagger tags、summary 和 docstring。
+- 完整部署 Runbook 补充 `/ready`、`--baseline-profile-id`、`ci:run` 和 Stage19 运维检查。
+- 阶段 19 文档：`docs/stage19-final-hardening-runbook.md`
+
+阶段 19 自动化测试覆盖：
+
+- `/ready` 返回 database、artifact storage、lane runtime 配置形态。
+- 所有 `/api/v1` routes 具备 Swagger 所需上下文。
+- Runbook 包含 Stage19 关键运维入口。
+
+阶段 19 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage19_final_hardening.py -q -> 3 passed in 0.39s
+cd backend && DATABASE_PATH=/private/tmp/locusthub-stage19-full.db ARTIFACT_ROOT=/private/tmp/locusthub-stage19-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 65 passed in 4.27s
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 620ms
+python3 scripts/verify_deployment_package.py -> LocustHub deployment package ready
+scripts/run_acceptance_smoke.py --output docs/reports/final-acceptance-smoke.json -> LocustHub acceptance smoke passed
+.venv/bin/python -m compileall backend/app scripts/migrate_mysql.py scripts/verify_deployment_package.py scripts/run_ci_baseline.py scripts/run_acceptance_smoke.py -> passed
+git diff --check -> passed
+```
+
+阶段 19 验收边界：
+
+- `/ready` 不做外部依赖深度连接探测，避免本地调试被 MySQL/OSS/Kubernetes 环境阻塞。
+- 真实生产可后续扩展 deep diagnostics。

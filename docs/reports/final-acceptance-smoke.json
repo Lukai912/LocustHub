@@ -26,7 +26,14 @@
       "total_rps": 5.4
     },
     "openapi": {
-      "paths": 38
+      "paths": 39
+    },
+    "ready": {
+      "app": "LocustHub",
+      "artifact_storage_provider": "local",
+      "database_backend": "sqlite",
+      "lane_runtime_backend": "local",
+      "status": "ready"
     },
     "report": {
       "p95_response_time": 248.0,

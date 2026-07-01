@@ -10,7 +10,7 @@ scripts/run_acceptance_smoke.py --output docs/reports/final-acceptance-smoke.jso
 
 脚本覆盖：
 
-- `/health` 和 `/openapi.json`
+- `/health`、`/ready` 和 `/openapi.json`
 - `admin/admin` 登录和 `/me`
 - 压测任务创建、启动、Locust UI 兼容实时指标、停止和报告归档
 - CI baseline 创建和结果查询
@@ -26,6 +26,7 @@ scripts/run_local.sh
 
 - API/Swagger: `http://127.0.0.1:8000/docs`
 - Admin: `http://127.0.0.1:8000/`
+- Readiness: `http://127.0.0.1:8000/ready`
 
 ## 3. Docker Compose 全栈
 
@@ -39,6 +40,7 @@ docker compose up --build
 - Admin: `http://127.0.0.1:8000/`
 - API: `http://127.0.0.1:8000/api/v1`
 - Swagger: `http://127.0.0.1:8000/docs`
+- Readiness: `http://127.0.0.1:8000/ready`
 
 默认 Compose 只启动 `mysql` 和 `api` 两个服务。`api` 镜像在构建阶段打包 Vue
 管理后台，并由 FastAPI 同源托管静态文件和 `/api/v1`。
@@ -94,6 +96,9 @@ ALIYUN_OSS_BUCKET=locusthub-artifacts
 
 ## 6. CI 性能基线
 
+用于 CI 的 API Token 需要包含 `ci:run` scope。可以在管理后台 `Access`
+页面创建 token，并在 `CI Baselines` 页面创建 baseline profile。
+
 ```bash
 scripts/run_ci_baseline.py \
   --api-base-url https://locusthub.example.com/api/v1 \
@@ -106,6 +111,7 @@ scripts/run_ci_baseline.py \
   --job-id perf-baseline \
   --commit-sha "$GITHUB_SHA" \
   --branch "$GITHUB_REF_NAME" \
+  --baseline-profile-id "$LOCUSTHUB_BASELINE_PROFILE_ID" \
   --max-p95-ms 500 \
   --max-fail-ratio 0.05 \
   --output locusthub-baseline.json
@@ -113,7 +119,24 @@ scripts/run_ci_baseline.py \
 
 脚本在 `conclusion=failed` 时返回退出码 `1`，CI 可直接将性能回归标记为失败。
 
-## 7. 已知生产化边界
+## 7. Stage19 运维检查
+
+Stage19 后，每次部署前建议至少执行：
+
+```bash
+python3 scripts/verify_deployment_package.py
+scripts/run_acceptance_smoke.py --output docs/reports/final-acceptance-smoke.json
+```
+
+人工检查：
+
+- Swagger: `/docs`
+- Readiness: `/ready`
+- Admin: `/`
+- API Token scope: `ci:run`
+- 报告下载和 CI baseline profile 是否可用
+
+## 8. 已知生产化边界
 
 - 用户管理后台、OIDC、细粒度 RBAC 仍是后续增强。
 - Helm chart 不创建证书签发资源，需要平台已有 cert-manager 或网关能力。

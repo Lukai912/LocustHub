@@ -52,6 +52,9 @@ def main() -> int:
     health = client.get("/health")
     health.raise_for_status()
     checks["health"] = health.json()
+    ready = client.get("/ready")
+    ready.raise_for_status()
+    checks["ready"] = ready.json()
 
     openapi = client.get("/openapi.json")
     openapi.raise_for_status()
@@ -136,6 +139,7 @@ def main() -> int:
     status = "passed" if all(
         [
             checks["health"]["status"] == "ok",
+            checks["ready"]["status"] == "ready",
             checks["auth"]["username"] == "admin",
             checks["load_test"]["run_status"] == "COMPLETED",
             checks["load_test"]["total_rps"] > 0,
