@@ -206,9 +206,20 @@ button.primary {
   border-top: 1px solid #edf1f6;
 }
 
+.surface-title.compact-title {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid #edf1f6;
+}
+
 .surface-title h2 {
   margin: 0;
   font-size: 15px;
+}
+
+.surface-title h3 {
+  margin: 0;
+  font-size: 14px;
 }
 
 .surface-title span {
@@ -422,6 +433,11 @@ tbody tr.selected {
   gap: 10px;
 }
 
+.chart-grid.compact-charts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
 .chart-card {
   min-height: 140px;
   padding: 12px;
@@ -457,6 +473,31 @@ tbody tr.selected {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 3;
+}
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compare-grid div {
+  padding: 12px;
+  border: 1px solid #e4e9f1;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.compare-grid span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.compare-grid strong {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font-size: 15px;
 }
 
 .logs-panel {
@@ -531,6 +572,8 @@ tbody tr.selected {
   .runtime-strip,
   .report-grid,
   .chart-grid,
+  .chart-grid.compact-charts,
+  .compare-grid,
   .form-grid,
   .form-grid.compact {
     grid-template-columns: repeat(2, minmax(0, 1fr));

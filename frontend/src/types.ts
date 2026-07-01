@@ -180,6 +180,37 @@ export interface ReportSummary {
   p99_response_time: number;
   total_rps: number;
   fail_ratio: number;
+  archived_at?: string;
+}
+
+export interface ReportTrendPoint {
+  run_id: string;
+  archived_at: string;
+  total_requests: number;
+  total_failures: number;
+  avg_response_time: number;
+  p95_response_time: number;
+  p99_response_time: number;
+  total_rps: number;
+  fail_ratio: number;
+}
+
+export interface ReportCollection {
+  items: ReportSummary[];
+  trend: ReportTrendPoint[];
+}
+
+export interface ReportMetricDelta {
+  base: number;
+  candidate: number;
+  delta: number;
+  delta_percent?: number | null;
+}
+
+export interface ReportComparison {
+  base: ReportSummary;
+  candidate: ReportSummary;
+  deltas: Record<string, ReportMetricDelta>;
 }
 
 export interface ReportArtifact {

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   collectRun,
+  compareReports,
   createRunFromPlan,
   createScriptVersion,
   createTestPlan,
@@ -11,6 +12,7 @@ import {
   getLocustStats,
   getReport,
   createUser,
+  listReports,
   listApprovalRequests,
   listApiTokens,
   listDnsSnapshots,
@@ -36,6 +38,8 @@ import type {
   LocustStatsResponse,
   Project,
   QuotaUsageSnapshot,
+  ReportCollection,
+  ReportComparison,
   ReportSummary,
   RunDiagnostics,
   ScriptValidationResult,
@@ -85,6 +89,8 @@ const dnsSnapshots = ref<DnsResolutionSnapshot[]>([]);
 const quotaUsageSnapshots = ref<QuotaUsageSnapshot[]>([]);
 const stats = ref<LocustStatsResponse | null>(null);
 const report = ref<ReportSummary | null>(null);
+const reportArchive = ref<ReportCollection>({ items: [], trend: [] });
+const reportComparison = ref<ReportComparison | null>(null);
 const diagnostics = ref<RunDiagnostics | null>(null);
 const validation = ref<ScriptValidationResult | null>(null);
 const defaultLocustfile = "from locust import HttpUser, task\n\nclass DemoUser(HttpUser):\n    @task\n    def index(self):\n        self.client.get('/todos/1')\n";
@@ -129,7 +135,7 @@ async function withLoading(task: () => Promise<void>) {
 
 async function refreshAll() {
   await withLoading(async () => {
-    const [tenantRows, userRows, tokenRows, projectRows, scriptRows, planRows, runRows, targetRows, quotaRows, approvalRows, dnsRows, quotaUsageRows] = await Promise.all([
+    const [tenantRows, userRows, tokenRows, projectRows, scriptRows, planRows, runRows, targetRows, quotaRows, approvalRows, dnsRows, quotaUsageRows, reportRows] = await Promise.all([
       listTenants(),
       listUsers(),
       listApiTokens(),
@@ -142,6 +148,7 @@ async function refreshAll() {
       listApprovalRequests(),
       listDnsSnapshots(),
       listQuotaUsageSnapshots(),
+      listReports(),
     ]);
     tenants.value = tenantRows;
     users.value = userRows;
@@ -155,9 +162,21 @@ async function refreshAll() {
     approvals.value = approvalRows;
     dnsSnapshots.value = dnsRows;
     quotaUsageSnapshots.value = quotaUsageRows;
+    reportArchive.value = reportRows;
+    await refreshReportComparison(reportRows.items);
     if (!selectedRunId.value && runRows[0]) selectedRunId.value = runRows[0].id;
     if (selectedRunId.value) await refreshRunDetail(selectedRunId.value);
   });
+}
+
+async function refreshReportComparison(items = reportArchive.value.items) {
+  if (items.length < 2) {
+    reportComparison.value = null;
+    return;
+  }
+  // Compare the newest archived report against the previous one, matching the
+  // common operator workflow of checking whether the latest run regressed.
+  reportComparison.value = await compareReports(items[1].run_id, items[0].run_id);
 }
 
 async function refreshRunDetail(runId: string) {
@@ -202,6 +221,8 @@ async function stopActiveRun() {
     runs.value = await listTestRuns();
     selectedRunId.value = stopped.id;
     await refreshRunDetail(stopped.id);
+    reportArchive.value = await listReports();
+    await refreshReportComparison();
   });
 }
 
@@ -280,6 +301,15 @@ function chartValues(key: 'total_rps' | 'total_fail_per_sec' | 'p50' | 'p95' | '
   return (stats.value?.history ?? []).map((point) => Number(point[key] ?? 0));
 }
 
+function reportTrendValues(key: 'p95_response_time' | 'total_rps' | 'fail_ratio') {
+  return reportArchive.value.trend.map((point) => Number(point[key] ?? 0));
+}
+
+function latestReportTrendValue(key: 'p95_response_time' | 'total_rps' | 'fail_ratio') {
+  const last = reportArchive.value.trend[reportArchive.value.trend.length - 1];
+  return last ? Number(last[key] ?? 0) : 0;
+}
+
 function sparklinePoints(values: number[], width = 320, height = 90) {
   if (!values.length) return '';
   const max = Math.max(...values, 1);
@@ -300,6 +330,12 @@ const chartCards = computed(() => [
   { title: 'Failures/s', points: sparklinePoints(chartValues('total_fail_per_sec')), latest: stats.value?.total_fail_per_sec ?? 0 },
   { title: 'Response Times', points: sparklinePoints(chartValues('p95')), latest: p95Value() },
   { title: 'User Count', points: sparklinePoints(chartValues('user_count')), latest: stats.value?.user_count ?? 0 },
+]);
+
+const reportTrendCards = computed(() => [
+  { title: 'P95 Trend', points: sparklinePoints(reportTrendValues('p95_response_time')), latest: latestReportTrendValue('p95_response_time') },
+  { title: 'RPS Trend', points: sparklinePoints(reportTrendValues('total_rps')), latest: latestReportTrendValue('total_rps') },
+  { title: 'Fail Ratio Trend', points: sparklinePoints(reportTrendValues('fail_ratio')), latest: latestReportTrendValue('fail_ratio') },
 ]);
 
 onMounted(refreshAll);
@@ -626,12 +662,53 @@ onMounted(refreshAll);
       </section>
 
       <section v-if="activeView === 'reports'" class="content surface">
-        <div class="surface-title"><h2>Reports</h2><span>{{ report?.report_status ?? 'no active report' }}</span></div>
+        <div class="surface-title"><h2>Reports</h2><span>{{ reportArchive.items.length }} archived reports</span></div>
         <div class="report-grid">
           <div><span>Total Requests</span><strong>{{ report?.total_requests ?? 0 }}</strong></div>
           <div><span>Total Failures</span><strong>{{ report?.total_failures ?? 0 }}</strong></div>
           <div><span>Average</span><strong>{{ report?.avg_response_time ?? 0 }}</strong></div>
           <div><span>P95</span><strong>{{ report?.p95_response_time ?? 0 }}</strong></div>
+        </div>
+        <div class="surface-title compact-title"><h3>Report History</h3><span>{{ reportArchive.trend.length }} trend points</span></div>
+        <div class="chart-grid compact-charts">
+          <article v-for="card in reportTrendCards" :key="card.title" class="chart-card">
+            <div class="chart-title"><span>{{ card.title }}</span><strong>{{ card.latest }}</strong></div>
+            <svg viewBox="0 0 320 90" role="img" :aria-label="`${card.title} report trend chart`">
+              <polyline :points="card.points" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+            </svg>
+          </article>
+        </div>
+        <table>
+          <thead><tr><th>Run</th><th>Archived</th><th>Total Requests</th><th>P95</th><th>Total RPS</th><th>Downloads</th></tr></thead>
+          <tbody>
+            <tr v-for="item in reportArchive.items" :key="item.id">
+              <td>{{ item.run_id }}</td>
+              <td>{{ item.archived_at ?? '-' }}</td>
+              <td>{{ item.total_requests }}</td>
+              <td>{{ item.p95_response_time }}</td>
+              <td>{{ item.total_rps }}</td>
+              <td>{{ item.artifacts?.length ?? 0 }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="surface-title compact-title"><h3>Report Compare</h3><span>latest vs previous</span></div>
+        <div class="compare-grid">
+          <div>
+            <span>Base Run</span>
+            <strong>{{ reportComparison?.base.run_id ?? '-' }}</strong>
+          </div>
+          <div>
+            <span>Candidate Run</span>
+            <strong>{{ reportComparison?.candidate.run_id ?? '-' }}</strong>
+          </div>
+          <div>
+            <span>P95 Delta</span>
+            <strong>{{ reportComparison?.deltas.p95_response_time?.delta ?? 0 }}</strong>
+          </div>
+          <div>
+            <span>Fail Ratio Delta</span>
+            <strong>{{ reportComparison?.deltas.fail_ratio?.delta ?? 0 }}</strong>
+          </div>
         </div>
       </section>
     </main>

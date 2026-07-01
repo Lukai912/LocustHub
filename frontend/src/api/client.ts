@@ -5,6 +5,8 @@ import type {
   LocustStatsResponse,
   Project,
   QuotaUsageSnapshot,
+  ReportCollection,
+  ReportComparison,
   ReportSummary,
   RunDiagnostics,
   ScriptValidationResult,
@@ -165,6 +167,15 @@ export async function getLocustStats(runId: string): Promise<LocustStatsResponse
 
 export async function getReport(runId: string): Promise<ReportSummary> {
   return request<ReportSummary>(`/test-runs/${runId}/report`);
+}
+
+export async function listReports(): Promise<ReportCollection> {
+  return request<ReportCollection>('/reports');
+}
+
+export async function compareReports(baseRunId: string, candidateRunId: string): Promise<ReportComparison> {
+  const params = new URLSearchParams({ base_run_id: baseRunId, candidate_run_id: candidateRunId });
+  return request<ReportComparison>(`/reports/compare?${params.toString()}`);
 }
 
 export async function listTargets(): Promise<TargetWhitelist[]> {

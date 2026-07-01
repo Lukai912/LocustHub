@@ -114,6 +114,27 @@ def create_router(deps: dict) -> APIRouter:
                     enriched["log_preview"] = ""
         return enriched
 
+    def trend_point(report: dict) -> dict:
+        """Project report fields into the compact shape used by trend charts."""
+        return {
+            "run_id": report["run_id"],
+            "archived_at": report["archived_at"],
+            "total_requests": report["total_requests"],
+            "total_failures": report["total_failures"],
+            "avg_response_time": report["avg_response_time"],
+            "p95_response_time": report["p95_response_time"],
+            "p99_response_time": report["p99_response_time"],
+            "total_rps": report["total_rps"],
+            "fail_ratio": report["fail_ratio"],
+        }
+
+    def metric_delta(base: dict, candidate: dict, field: str) -> dict:
+        base_value = float(base.get(field) or 0)
+        candidate_value = float(candidate.get(field) or 0)
+        delta = candidate_value - base_value
+        delta_percent = (delta / base_value * 100) if base_value else None
+        return {"base": base_value, "candidate": candidate_value, "delta": delta, "delta_percent": delta_percent}
+
     @router.post("/auth/login", tags=["Auth"], summary="Login and return bearer token")
     def login(payload: LoginRequest) -> dict:
         """Validate credentials against the persisted users table and return its token."""
@@ -336,6 +357,28 @@ def create_router(deps: dict) -> APIRouter:
         if not report:
             raise HTTPException(status_code=404, detail="Report not archived")
         return enrich_report(report)
+
+    @router.get("/reports", tags=["Reports"], summary="List archived reports and trend points")
+    def reports(user: dict = Depends(current_user)) -> dict:
+        """Return archived report rows plus chronological trend points for the Reports page."""
+        rows = repo.list_reports(None if user["role"] == "admin" else user["tenant_id"])
+        return {"items": [enrich_report(row) for row in rows], "trend": [trend_point(row) for row in reversed(rows)]}
+
+    @router.get("/reports/compare", tags=["Reports"], summary="Compare two archived reports")
+    def compare_reports(base_run_id: str, candidate_run_id: str, user: dict = Depends(current_user)) -> dict:
+        """Compare response time, throughput, and failure metrics between two archived runs."""
+        require_scoped_record("test_runs", base_run_id, user, "Base run not found")
+        require_scoped_record("test_runs", candidate_run_id, user, "Candidate run not found")
+        base = repo.get_report(base_run_id)
+        candidate = repo.get_report(candidate_run_id)
+        if not base or not candidate:
+            raise HTTPException(status_code=404, detail="Both runs must have archived reports")
+        fields = ["total_requests", "total_failures", "avg_response_time", "p95_response_time", "p99_response_time", "total_rps", "fail_ratio"]
+        return {
+            "base": enrich_report(base),
+            "candidate": enrich_report(candidate),
+            "deltas": {field: metric_delta(base, candidate, field) for field in fields},
+        }
 
     @router.get("/artifacts/{artifact_id}/download", tags=["Reports"], summary="Download archived artifact")
     def download_artifact(artifact_id: str, user: dict = Depends(current_user)):

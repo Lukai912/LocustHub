@@ -636,3 +636,33 @@ cd frontend && npm run build -> passed, built in 544ms
 
 - 当前阶段先提供基础 RBAC 和 token 生命周期，细粒度 scope enforcement 留给 CI/API 调用深化阶段。
 - API Token 明文只在创建响应中返回，列表和撤销响应不返回 token secret。
+
+## 23. 阶段 16 报告趋势与对比验收
+
+阶段 16 新增范围：
+
+- `GET /api/v1/reports` 报告列表和趋势接口。
+- `GET /api/v1/reports/compare` 报告对比接口。
+- Reports 页面新增 `Report History` 趋势卡、历史报告表格和 `Report Compare` 面板。
+- 阶段 16 文档：`docs/stage16-report-trends-compare.md`
+
+阶段 16 自动化测试覆盖：
+
+- 报告列表接口返回最新优先的报告列表。
+- trend 按归档时间正序返回。
+- 对比接口返回 base、candidate 和关键指标 deltas。
+- 已认证但跨租户的用户无法对比其他租户报告。
+- 前端结构包含 Report History、Report Compare、P95 Delta、Fail Ratio Delta。
+
+阶段 16 测试结果：
+
+```text
+cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage16_report_trends_compare.py -q -> 3 passed in 0.71s
+node frontend/tests/structure.test.mjs -> passed
+cd frontend && npm run build -> passed, built in 533ms
+```
+
+阶段 16 验收边界：
+
+- 当前阶段默认比较最新报告与上一份报告，不新增手动选择复杂交互。
+- 图表继续使用轻量 SVG sparkline，不引入额外图表库。

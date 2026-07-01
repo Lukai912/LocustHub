@@ -1048,6 +1048,20 @@ class SQLiteRepository:
         with self.db.connect() as conn:
             return row_to_dict(conn.execute("SELECT * FROM locust_report_summaries WHERE run_id = ?", (run_id,)).fetchone())
 
+    def list_reports(self, tenant_id: str | None = None, limit: int = 50) -> list[dict]:
+        query = "SELECT * FROM locust_report_summaries"
+        params: tuple[Any, ...]
+        if tenant_id:
+            query += " WHERE tenant_id = ?"
+            params = (tenant_id, limit)
+        else:
+            params = (limit,)
+        # Reports page defaults to newest-first browsing, while API routes can
+        # reverse the same rows for chronological trend charts.
+        query += " ORDER BY archived_at DESC LIMIT ?"
+        with self.db.connect() as conn:
+            return rows_to_dicts(conn.execute(query, params).fetchall())
+
     def insert_baseline_run(self, item: dict) -> dict:
         record = {"id": new_id("baseline"), "created_at": now_iso(), **item}
         with self.db.connect() as conn:
