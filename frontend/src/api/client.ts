@@ -6,6 +6,7 @@ import type {
   LocustStatsResponse,
   Project,
   QuotaUsageSnapshot,
+  ReportArtifact,
   ReportCollection,
   ReportComparison,
   ReportSummary,
@@ -177,6 +178,29 @@ export async function listReports(): Promise<ReportCollection> {
 export async function compareReports(baseRunId: string, candidateRunId: string): Promise<ReportComparison> {
   const params = new URLSearchParams({ base_run_id: baseRunId, candidate_run_id: candidateRunId });
   return request<ReportComparison>(`/reports/compare?${params.toString()}`);
+}
+
+function contentDispositionFilename(value: string | null) {
+  if (!value) return '';
+  const utf8Match = value.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1]);
+  const asciiMatch = value.match(/filename="?([^";]+)"?/i);
+  return asciiMatch?.[1] ?? '';
+}
+
+export async function downloadArtifact(artifact: ReportArtifact): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(artifact.download_url, {
+    headers: {
+      Authorization: `Bearer ${DEMO_TOKEN}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return {
+    blob: await response.blob(),
+    filename: contentDispositionFilename(response.headers.get('content-disposition')) || artifact.name,
+  };
 }
 
 export async function listBaselineProfiles(): Promise<BaselineProfile[]> {
