@@ -6,7 +6,9 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
+from app.core.database import Database
 from app.main import create_app
+from app.repositories.sqlite_repo import SQLiteRepository
 
 
 AUTH = {"Authorization": "Bearer dev-token"}
@@ -113,3 +115,51 @@ def test_ci_baseline_script_sends_profile_id_in_payload(tmp_path):
 
     assert result.returncode == 0
     assert json.loads(capture.read_text(encoding="utf-8"))["baseline_profile_id"] == "profile-strict"
+
+
+def test_baseline_run_insert_survives_migrated_column_order(tmp_path):
+    db = Database(tmp_path / "locusthub.db")
+    with db.connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE baseline_runs (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                test_run_id TEXT NOT NULL,
+                ci_provider TEXT NOT NULL,
+                pipeline_id TEXT NOT NULL,
+                job_id TEXT NOT NULL,
+                commit_sha TEXT NOT NULL,
+                branch TEXT NOT NULL,
+                status TEXT NOT NULL,
+                conclusion TEXT NOT NULL,
+                violations_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+    repo = SQLiteRepository(db)
+    repo.init_schema()
+
+    record = repo.insert_baseline_run(
+        {
+            "tenant_id": "tenant-demo",
+            "project_id": "project-demo",
+            "test_run_id": "run-demo",
+            "baseline_profile_id": None,
+            "ci_provider": "local",
+            "pipeline_id": "pipeline",
+            "job_id": "perf",
+            "commit_sha": "local",
+            "branch": "main",
+            "status": "RUNNING",
+            "conclusion": "passed",
+            "violations": [],
+        }
+    )
+
+    stored = repo.get_baseline_by_run("run-demo")
+    assert record["ci_provider"] == "local"
+    assert stored["ci_provider"] == "local"
+    assert stored["baseline_profile_id"] is None

@@ -1082,7 +1082,24 @@ class SQLiteRepository:
         record = {"id": new_id("baseline"), "created_at": now_iso(), **item}
         with self.db.connect() as conn:
             conn.execute(
-                "INSERT INTO baseline_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                """
+                INSERT INTO baseline_runs (
+                    id,
+                    tenant_id,
+                    project_id,
+                    test_run_id,
+                    baseline_profile_id,
+                    ci_provider,
+                    pipeline_id,
+                    job_id,
+                    commit_sha,
+                    branch,
+                    status,
+                    conclusion,
+                    violations_json,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
                 (
                     record["id"],
                     record["tenant_id"],

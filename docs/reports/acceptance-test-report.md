@@ -746,9 +746,9 @@ cd frontend && npm run build -> passed, built in 543ms
 
 ```text
 cd backend && PYTHONPATH=. ../.venv/bin/pytest tests/test_stage19_final_hardening.py -q -> 3 passed in 0.39s
-cd backend && DATABASE_PATH=/private/tmp/locusthub-stage19-full.db ARTIFACT_ROOT=/private/tmp/locusthub-stage19-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 65 passed in 4.27s
+cd backend && DATABASE_PATH=/private/tmp/locusthub-final-audit-fresh-1901.db ARTIFACT_ROOT=/private/tmp/locusthub-final-audit-fresh-1901-artifacts PYTHONPATH=. ../.venv/bin/pytest -q -> 66 passed in 4.32s
 node frontend/tests/structure.test.mjs -> passed
-cd frontend && npm run build -> passed, built in 620ms
+cd frontend && npm run build -> passed, built in 569ms
 python3 scripts/verify_deployment_package.py -> LocustHub deployment package ready
 scripts/run_acceptance_smoke.py --output docs/reports/final-acceptance-smoke.json -> LocustHub acceptance smoke passed
 .venv/bin/python -m compileall backend/app scripts/migrate_mysql.py scripts/verify_deployment_package.py scripts/run_ci_baseline.py scripts/run_acceptance_smoke.py -> passed
