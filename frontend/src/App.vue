@@ -9,6 +9,7 @@ import {
   createTestPlan,
   cloneTestPlan,
   createApiToken,
+  downloadArtifact,
   getRunDiagnostics,
   getLocustStats,
   getReport,
@@ -43,6 +44,7 @@ import type {
   QuotaUsageSnapshot,
   ReportCollection,
   ReportComparison,
+  ReportArtifact,
   ReportSummary,
   RunDiagnostics,
   ScriptValidationResult,
@@ -79,6 +81,14 @@ const artifactNameMap: Record<string, string> = {
   'Exceptions CSV': '异常 CSV',
   'History CSV': '历史 CSV',
   'Master Log': 'Master 日志',
+};
+const artifactFilenameMap: Record<string, string> = {
+  html: 'report.html',
+  requests_csv: 'requests.csv',
+  failures_csv: 'failures.csv',
+  exceptions_csv: 'exceptions.csv',
+  history_csv: 'history.csv',
+  master_log: 'master.log',
 };
 
 const activeView = ref<ViewKey>('dashboard');
@@ -172,6 +182,10 @@ function sourceText(source?: string) {
 
 function artifactDisplayName(name: string) {
   return artifactNameMap[name] ?? name;
+}
+
+function artifactFallbackFilename(artifact: ReportArtifact) {
+  return artifactFilenameMap[artifact.kind] ?? artifact.name.replace(/\s+/g, '-').toLowerCase();
 }
 
 async function withLoading(task: () => Promise<void>) {
@@ -317,6 +331,20 @@ async function createBaselineProfileFromForm() {
   await withLoading(async () => {
     await createBaselineProfile(baselineProfileForm.value);
     baselineProfiles.value = await listBaselineProfiles();
+  });
+}
+
+async function downloadArtifactFromBrowser(artifact: ReportArtifact) {
+  await withLoading(async () => {
+    const { blob, filename } = await downloadArtifact(artifact);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename || artifactFallbackFilename(artifact);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   });
 }
 
@@ -693,10 +721,10 @@ onMounted(refreshAll);
             <div v-if="!(report?.artifacts ?? []).length" class="artifact-hint">
               <span v-for="name in expectedReportArtifacts" :key="name">{{ name }}</span>
             </div>
-            <a v-for="artifact in report?.artifacts ?? []" :key="artifact.id" :href="artifact.download_url" target="_blank" rel="noreferrer">
+            <button v-for="artifact in report?.artifacts ?? []" :key="artifact.id" class="download-link" type="button" @click="downloadArtifactFromBrowser(artifact)">
               <span>{{ artifactDisplayName(artifact.name) }}</span>
               <strong>{{ artifact.size_bytes }} bytes</strong>
-            </a>
+            </button>
           </div>
         </section>
       </section>
