@@ -1,11 +1,12 @@
 import logging
 
+import httpx
 from app.core.database import Database
 from app.repositories.sqlite_repo import SQLiteRepository
 from app.services.artifacts import LocalArtifactRepository
 import app.services.metrics as metrics_module
 from app.services.lane import KubernetesLaneRuntime, KubernetesManifestBuilder, LaneRuntimeConfig
-from app.services.metrics import LocustApiMetricsCollector
+from app.services.metrics import LocustApiMetricsCollector, LocustReportFetcher
 from app.services.reports import ReportArchiver
 
 
@@ -159,6 +160,34 @@ def test_locust_api_collector_uses_persisted_lane_namespace(monkeypatch):
         "base_url": "http://run-1-master.lt-tenant-demo-run-1.svc.cluster.local:8089",
         "timeout_seconds": 2,
     }
+
+
+def test_locust_report_fetcher_downloads_native_report_exports(monkeypatch):
+    requested_paths: list[str] = []
+    bodies = {
+        "http://locust-master/stats/report": ("text/html", "<html>native locust report</html>"),
+        "http://locust-master/stats/requests/csv": ("text/csv", "method,name\nGET,/\n"),
+        "http://locust-master/stats/failures/csv": ("text/csv", "method,name,error\n"),
+        "http://locust-master/exceptions/csv": ("text/csv", "method,name,error,occurrences\n"),
+        "http://locust-master/stats/requests_full_history/csv": ("text/csv", "timestamp,rps\n"),
+    }
+
+    def fake_get(url: str, timeout: float) -> httpx.Response:
+        requested_paths.append(url.replace("http://locust-master", ""))
+        content_type, body = bodies[url]
+        return httpx.Response(200, text=body, headers={"Content-Type": content_type}, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(metrics_module.httpx, "get", fake_get)
+
+    fetcher = LocustReportFetcher("http://locust-master", timeout_seconds=2)
+    reports = fetcher.fetch({"id": "run-report", "tenant_id": "tenant-demo", "project_id": "project-demo"}, "lt-tenant-demo")
+
+    assert reports["html"] == "<html>native locust report</html>"
+    assert reports["requests_csv"].startswith("method,name")
+    assert reports["history_csv"].startswith("timestamp")
+    assert "/stats/report" in requested_paths
+    assert "/stats/requests/csv" in requested_paths
+    assert "/stats/requests_full_history/csv" in requested_paths
 
 
 class FakeReportFetcher:
