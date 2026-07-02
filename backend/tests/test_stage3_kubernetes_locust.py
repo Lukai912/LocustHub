@@ -1,9 +1,12 @@
+import logging
+
+import httpx
 from app.core.database import Database
 from app.repositories.sqlite_repo import SQLiteRepository
 from app.services.artifacts import LocalArtifactRepository
 import app.services.metrics as metrics_module
 from app.services.lane import KubernetesLaneRuntime, KubernetesManifestBuilder, LaneRuntimeConfig
-from app.services.metrics import LocustApiMetricsCollector
+from app.services.metrics import LocustApiMetricsCollector, LocustReportFetcher
 from app.services.reports import ReportArchiver
 
 
@@ -159,6 +162,34 @@ def test_locust_api_collector_uses_persisted_lane_namespace(monkeypatch):
     }
 
 
+def test_locust_report_fetcher_downloads_native_report_exports(monkeypatch):
+    requested_paths: list[str] = []
+    bodies = {
+        "http://locust-master/stats/report": ("text/html", "<html>native locust report</html>"),
+        "http://locust-master/stats/requests/csv": ("text/csv", "method,name\nGET,/\n"),
+        "http://locust-master/stats/failures/csv": ("text/csv", "method,name,error\n"),
+        "http://locust-master/exceptions/csv": ("text/csv", "method,name,error,occurrences\n"),
+        "http://locust-master/stats/requests_full_history/csv": ("text/csv", "timestamp,rps\n"),
+    }
+
+    def fake_get(url: str, timeout: float) -> httpx.Response:
+        requested_paths.append(url.replace("http://locust-master", ""))
+        content_type, body = bodies[url]
+        return httpx.Response(200, text=body, headers={"Content-Type": content_type}, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(metrics_module.httpx, "get", fake_get)
+
+    fetcher = LocustReportFetcher("http://locust-master", timeout_seconds=2)
+    reports = fetcher.fetch({"id": "run-report", "tenant_id": "tenant-demo", "project_id": "project-demo"}, "lt-tenant-demo")
+
+    assert reports["html"] == "<html>native locust report</html>"
+    assert reports["requests_csv"].startswith("method,name")
+    assert reports["history_csv"].startswith("timestamp")
+    assert "/stats/report" in requested_paths
+    assert "/stats/requests/csv" in requested_paths
+    assert "/stats/requests_full_history/csv" in requested_paths
+
+
 class FakeReportFetcher:
     def fetch(self, run: dict, namespace: str) -> dict[str, str]:
         assert namespace == "lt-tenant-demo"
@@ -170,7 +201,8 @@ class FakeReportFetcher:
         }
 
 
-def test_report_archiver_prefers_real_locust_reports(tmp_path):
+def test_report_archiver_prefers_real_locust_reports(tmp_path, caplog):
+    caplog.set_level(logging.DEBUG)
     db = Database(tmp_path / "locusthub.db")
     repo = SQLiteRepository(db)
     repo.init_schema()
@@ -198,7 +230,14 @@ def test_report_archiver_prefers_real_locust_reports(tmp_path):
 
     assert summary["report_status"] == "archived"
     artifacts = repo.list_table("artifact_objects")
-    html = next(item for item in artifacts if item["object_key"].endswith("report.html"))
-    assert "report.html" in html["object_key"]
+    html = next(item for item in artifacts if item["object_key"].endswith("locust-native/report.html"))
+    assert summary["html_artifact_id"] == html["id"]
     report_file = tmp_path / "artifacts" / html["object_key"]
     assert "real locust report" in report_file.read_text(encoding="utf-8")
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "locust_native_report_fetched run_id=run-report" in messages
+    assert "archive_report_html_selected run_id=run-report report_source=locust_native" in messages
+    assert "archive_artifact_saved run_id=run-report" in messages
+    assert "archive_report_inputs run_id=run-report snapshots=0 request_stats=0" in messages
+    assert "locust_native_report_payload run_id=run-report keys=" in messages
+    assert "archive_artifact_payload run_id=run-report" in messages

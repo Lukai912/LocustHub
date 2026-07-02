@@ -33,6 +33,7 @@ class Settings(BaseModel):
     api_prefix: str = "/api/v1"
     frontend_dist_dir: Path = Path("../frontend/dist")
     demo_token: str = "dev-token"
+    log_level: str = "INFO"
 
 
 @lru_cache
@@ -66,4 +67,5 @@ def get_settings() -> Settings:
         api_prefix=os.getenv("API_PREFIX", "/api/v1"),
         frontend_dist_dir=Path(os.getenv("FRONTEND_DIST_DIR", "../frontend/dist")),
         demo_token=os.getenv("DEMO_TOKEN", "dev-token"),
+        log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
     )

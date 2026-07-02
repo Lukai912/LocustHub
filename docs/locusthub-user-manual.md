@@ -64,7 +64,7 @@
 
 ![压测任务日志](assets/user-manual/04-runs-logs.png)
 
-`下载数据` 页签展示报告状态、总请求数和可下载工件。归档完成后可下载 HTML 报告、请求 CSV、失败 CSV、异常 CSV、历史 CSV 和 Master 日志。
+`下载数据` 页签展示报告状态、总请求数和可下载工件。归档完成后可下载 Locust 原生 HTML 报告、请求 CSV、失败 CSV、异常 CSV、历史 CSV 和 Master 日志。若本地模拟运行或真实 Locust master 已不可访问，页面会展示平台 HTML 报告作为兜底，并保留 CSV/日志下载。
 
 ![报告下载](assets/user-manual/05-runs-downloads.png)
 
@@ -81,7 +81,7 @@
 
 ## 7. 报告归档与对比
 
-任务停止后，平台会归档 Locust 报告和 CSV/日志工件。当前本地模式保存到本地对象存储适配目录，部署模式可切换到阿里云 OSS。
+任务停止后，平台会优先从 Locust master 的 `/stats/report` 归档原生 HTML 报告，同时归档 CSV/日志工件。当前本地模式保存到本地对象存储适配目录，部署模式可切换到阿里云 OSS。
 
 `报告` 模块提供：
 

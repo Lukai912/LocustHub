@@ -22,7 +22,7 @@ assert.equal(pkg.scripts.dev, 'vite --host 127.0.0.1');
 assert.equal(pkg.scripts.build, 'vue-tsc --noEmit --pretty false && node scripts/build.mjs');
 
 const client = readFileSync(join(root, 'src/api/client.ts'), 'utf8');
-for (const api of ['listTestRuns', 'startRun', 'collectRun', 'stopRun', 'getLocustStats', 'listApprovalRequests', 'listDnsSnapshots', 'listQuotaUsageSnapshots', 'validateLocustfile', 'createScriptVersion', 'createTestPlan', 'cloneTestPlan', 'getRunDiagnostics', 'rerunTestRun', 'listUsers', 'createUser', 'listApiTokens', 'createApiToken', 'revokeApiToken', 'listReports', 'compareReports', 'listBaselineProfiles', 'createBaselineProfile']) {
+for (const api of ['listTestRuns', 'startRun', 'collectRun', 'stopRun', 'getLocustStats', 'listApprovalRequests', 'listDnsSnapshots', 'listQuotaUsageSnapshots', 'validateLocustfile', 'createScriptVersion', 'createTestPlan', 'cloneTestPlan', 'getRunDiagnostics', 'rerunTestRun', 'listUsers', 'createUser', 'listApiTokens', 'createApiToken', 'revokeApiToken', 'listReports', 'compareReports', 'downloadArtifact', 'listBaselineProfiles', 'createBaselineProfile']) {
   assert.match(client, new RegExp(`export async function ${api}`), `${api} must be exported`);
 }
 
@@ -43,9 +43,11 @@ for (const label of ['审批请求', '准入快照']) {
 for (const tab of ['统计', '图表', '失败', 'Worker', '日志', '下载数据']) {
   assert.match(app, new RegExp(tab), `${tab} Locust tab must exist`);
 }
-for (const label of ['RPS', '失败/秒', '响应时间', '用户数', 'Master 日志', 'HTML 报告', '请求 CSV', '失败 CSV', '异常 CSV', '历史 CSV']) {
+for (const label of ['RPS', '失败/秒', '响应时间', '用户数', 'Master 日志', 'Locust 原生 HTML 报告', '平台 HTML 报告', '请求 CSV', '失败 CSV', '异常 CSV', '历史 CSV']) {
   assert.match(app, new RegExp(label), `${label} Locust WebUI detail label must exist`);
 }
+assert.doesNotMatch(app, /:href="artifact\.download_url"/, 'artifact downloads must use authenticated fetch instead of a bare browser link');
+assert.match(app, /downloadArtifactFromBrowser/, 'artifact downloads must trigger the authenticated browser download handler');
 for (const label of ['校验 Locustfile', '创建脚本版本', '创建压测计划', '复制计划']) {
   assert.match(app, new RegExp(label), `${label} script and plan management label must exist`);
 }

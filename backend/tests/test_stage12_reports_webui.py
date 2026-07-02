@@ -1,5 +1,8 @@
+import logging
+
 from fastapi.testclient import TestClient
 
+from app.core.database import Database
 from app.core.config import get_settings
 from app.main import create_app
 
@@ -40,16 +43,19 @@ def test_report_summary_exposes_downloadable_artifacts_and_logs(monkeypatch, tmp
     assert response.status_code == 200
     body = response.json()
     artifact_names = {item["name"] for item in body["artifacts"]}
-    assert {"HTML Report", "Requests CSV", "Failures CSV", "Exceptions CSV", "History CSV", "Master Log"} <= artifact_names
+    assert {"Platform HTML Report", "Requests CSV", "Failures CSV", "Exceptions CSV", "History CSV", "Master Log"} <= artifact_names
+    assert "Locust Native HTML Report" not in artifact_names
     assert body["log_preview"].startswith("Run ")
     assert body["artifacts"][0]["download_url"].startswith(f"/api/v1/artifacts/{body['artifacts'][0]['id']}/download")
 
 
-def test_artifact_download_is_tenant_scoped(monkeypatch, tmp_path):
+def test_artifact_download_is_tenant_scoped(monkeypatch, tmp_path, caplog):
+    caplog.set_level(logging.DEBUG)
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     client = make_client(monkeypatch, tmp_path)
     run_id = create_archived_run(client)
     report = client.get(f"/api/v1/test-runs/{run_id}/report", headers=AUTH).json()
-    html = next(item for item in report["artifacts"] if item["name"] == "HTML Report")
+    html = next(item for item in report["artifacts"] if item["name"] == "Platform HTML Report")
 
     download = client.get(html["download_url"], headers=AUTH)
     viewer_download = client.get(html["download_url"], headers={"Authorization": "Bearer dev-token-viewer"})
@@ -58,6 +64,27 @@ def test_artifact_download_is_tenant_scoped(monkeypatch, tmp_path):
     assert "text/html" in download.headers["content-type"]
     assert "LocustHub Report" in download.text
     assert viewer_download.status_code == 200
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert f"artifact_download_requested artifact_id={html['id']}" in messages
+    assert f"artifact_download_context artifact_id={html['id']}" in messages
+
+
+def test_report_summary_labels_native_locust_html_artifact(monkeypatch, tmp_path):
+    client = make_client(monkeypatch, tmp_path)
+    run_id = create_archived_run(client)
+    db = Database(tmp_path / "locusthub.db")
+    with db.connect() as conn:
+        report = conn.execute("SELECT html_artifact_id FROM locust_report_summaries WHERE run_id = ?", (run_id,)).fetchone()
+        conn.execute(
+            "UPDATE artifact_objects SET object_key = REPLACE(object_key, '/reports/platform-report.html', '/locust-native/report.html') WHERE id = ?",
+            (report["html_artifact_id"],),
+        )
+
+    response = client.get(f"/api/v1/test-runs/{run_id}/report", headers=AUTH)
+    html = next(item for item in response.json()["artifacts"] if item["kind"] == "locust_native_html")
+
+    assert response.status_code == 200
+    assert html["name"] == "Locust Native HTML Report"
 
 
 def test_locust_stats_include_history_and_error_rows(monkeypatch, tmp_path):

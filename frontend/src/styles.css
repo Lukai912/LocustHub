@@ -409,13 +409,15 @@ tbody tr.selected {
   gap: 10px;
 }
 
-.download-panel a {
+.download-link {
   display: block;
+  height: auto;
   padding: 12px;
   border: 1px solid #d6e2f2;
   border-radius: 6px;
   color: #175cd3;
   background: #f4f8ff;
+  text-align: left;
   text-decoration: none;
 }
 
@@ -560,14 +562,13 @@ tbody tr.selected {
 }
 
 @media (max-width: 980px) {
-  .app-shell,
   .split-layout,
   .run-layout {
     grid-template-columns: 1fr;
   }
 
-  .sidebar {
-    display: none;
+  .app-shell {
+    grid-template-columns: 196px minmax(0, 1fr);
   }
 
   .topbar {
@@ -595,5 +596,25 @@ tbody tr.selected {
   .logs-panel,
   .diagnostics-panel {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    padding: 12px;
+  }
+
+  .nav-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .nav-item {
+    margin-top: 0;
   }
 }

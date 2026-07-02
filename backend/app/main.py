@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -33,6 +34,18 @@ OPENAPI_TAGS = [
     {"name": "Governance", "description": "Target whitelist, approval, and tenant quota APIs."},
     {"name": "CI Baselines", "description": "CI-triggered performance baseline execution."},
 ]
+
+
+def configure_logging(level_name: str) -> None:
+    """Enable application logs under the app.* namespace in local and container runs."""
+    level = getattr(logging, level_name.upper(), logging.INFO)
+    app_logger = logging.getLogger("app")
+    app_logger.setLevel(level)
+    if not any(getattr(handler, "_locusthub_app_handler", False) for handler in app_logger.handlers):
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+        handler._locusthub_app_handler = True
+        app_logger.addHandler(handler)
 
 
 def mount_frontend(app: FastAPI, dist_dir: Path, api_prefix: str) -> None:
@@ -72,6 +85,7 @@ def mount_frontend(app: FastAPI, dist_dir: Path, api_prefix: str) -> None:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_logging(settings.log_level)
     if settings.database_backend == "mysql":
         database = MySQLDatabase(
             host=settings.mysql_host,

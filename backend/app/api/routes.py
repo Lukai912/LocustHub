@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 
@@ -22,6 +24,9 @@ from app.models.schemas import (
     UserCreate,
 )
 from app.services.scripts import validate_locustfile
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_router(deps: dict) -> APIRouter:
@@ -76,6 +81,11 @@ def create_router(deps: dict) -> APIRouter:
             ensure_tenant_access(tenant_id, user)
         return item
 
+    def html_artifact_metadata(artifact: dict) -> tuple[str, str]:
+        if "/locust-native/" in artifact["object_key"]:
+            return "Locust Native HTML Report", "locust_native_html"
+        return "Platform HTML Report", "platform_html"
+
     def enrich_report(report: dict) -> dict:
         artifact_fields = [
             ("html_artifact_id", "HTML Report", "html"),
@@ -94,16 +104,26 @@ def create_router(deps: dict) -> APIRouter:
             artifact = repo.get_artifact(artifact_id)
             if not artifact:
                 continue
+            artifact_name, artifact_kind = html_artifact_metadata(artifact) if field == "html_artifact_id" else (name, kind)
             enriched_artifacts.append(
                 {
                     "id": artifact["id"],
-                    "name": name,
-                    "kind": kind,
+                    "name": artifact_name,
+                    "kind": artifact_kind,
                     "content_type": artifact["content_type"],
                     "size_bytes": artifact["size_bytes"],
                     "checksum": artifact["checksum"],
                     "download_url": f"/api/v1/artifacts/{artifact['id']}/download",
                 }
+            )
+            logger.info(
+                "report_artifact_exposed run_id=%s artifact_id=%s name=%s kind=%s object_key=%s size_bytes=%s",
+                report["run_id"],
+                artifact["id"],
+                artifact_name,
+                artifact_kind,
+                artifact["object_key"],
+                artifact["size_bytes"],
             )
         enriched["artifacts"] = enriched_artifacts
         enriched["log_preview"] = ""
@@ -115,8 +135,17 @@ def create_router(deps: dict) -> APIRouter:
                     # available even if an external object store is temporarily
                     # unreachable from the control plane.
                     enriched["log_preview"] = artifacts.read_text(log_artifact["object_key"])[:4000]
-                except Exception:
+                except Exception as exc:
+                    logger.warning(
+                        "report_log_preview_failed run_id=%s artifact_id=%s object_key=%s error=%s",
+                        report["run_id"],
+                        log_artifact["id"],
+                        log_artifact["object_key"],
+                        exc,
+                        exc_info=True,
+                    )
                     enriched["log_preview"] = ""
+        logger.info("report_enriched run_id=%s artifact_count=%s", report["run_id"], len(enriched_artifacts))
         return enriched
 
     def trend_point(report: dict) -> dict:
@@ -388,16 +417,46 @@ def create_router(deps: dict) -> APIRouter:
     @router.get("/artifacts/{artifact_id}/download", tags=["Reports"], summary="Download archived artifact")
     def download_artifact(artifact_id: str, user: dict = Depends(current_user)):
         """Download a report, CSV, or log artifact after enforcing tenant scope."""
+        logger.info(
+            "artifact_download_requested artifact_id=%s user_id=%s role=%s tenant_id=%s",
+            artifact_id,
+            user.get("id"),
+            user.get("role"),
+            user.get("tenant_id"),
+        )
         artifact = repo.get_artifact(artifact_id)
         if not artifact:
+            logger.warning("artifact_download_missing artifact_id=%s", artifact_id)
             raise HTTPException(status_code=404, detail="Artifact not found")
         ensure_tenant_access(artifact["tenant_id"], user)
         filename = artifact["object_key"].rstrip("/").split("/")[-1] or artifact["id"]
+        logger.debug(
+            "artifact_download_context artifact_id=%s tenant_id=%s project_id=%s run_id=%s object_key=%s filename=%s provider=%s",
+            artifact["id"],
+            artifact["tenant_id"],
+            artifact["project_id"],
+            artifact.get("run_id"),
+            artifact["object_key"],
+            filename,
+            artifact["provider"],
+        )
+        logger.info(
+            "artifact_download_authorized artifact_id=%s run_id=%s object_key=%s provider=%s content_type=%s size_bytes=%s",
+            artifact["id"],
+            artifact.get("run_id"),
+            artifact["object_key"],
+            artifact["provider"],
+            artifact["content_type"],
+            artifact["size_bytes"],
+        )
         if hasattr(artifacts, "path_for"):
             path = artifacts.path_for(artifact["object_key"])
             if not path.exists():
+                logger.warning("artifact_download_content_missing artifact_id=%s object_key=%s path=%s", artifact["id"], artifact["object_key"], path)
                 raise HTTPException(status_code=404, detail="Artifact content not found")
+            logger.info("artifact_download_local_file artifact_id=%s path=%s filename=%s", artifact["id"], path, filename)
             return FileResponse(path, media_type=artifact["content_type"], filename=filename)
+        logger.info("artifact_download_redirect artifact_id=%s object_key=%s filename=%s", artifact["id"], artifact["object_key"], filename)
         return RedirectResponse(artifacts.generate_download_url(artifact["object_key"]))
 
     @router.get("/target-whitelists", tags=["Governance"], summary="List target whitelist entries")
