@@ -1,8 +1,10 @@
+import logging
 from pathlib import Path
 
 import pytest
 
 from app.core.config import get_settings
+from app.main import configure_logging
 from app.services.artifacts import AliyunOssArtifactRepository, LocalArtifactRepository
 
 
@@ -21,6 +23,20 @@ def test_settings_can_select_mysql_and_oss(monkeypatch):
     assert settings.mysql_port == 3307
     assert settings.artifact_storage_provider == "aliyun_oss"
     assert settings.aliyun_oss_bucket == "locusthub-artifacts"
+    get_settings.cache_clear()
+
+
+def test_settings_can_enable_debug_application_logging(monkeypatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+
+    settings = get_settings()
+    configure_logging(settings.log_level)
+
+    app_logger = logging.getLogger("app")
+    assert settings.log_level == "DEBUG"
+    assert app_logger.isEnabledFor(logging.DEBUG)
+    assert any(getattr(handler, "_locusthub_app_handler", False) for handler in app_logger.handlers)
     get_settings.cache_clear()
 
 

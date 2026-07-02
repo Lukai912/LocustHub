@@ -43,7 +43,7 @@ for (const label of ['审批请求', '准入快照']) {
 for (const tab of ['统计', '图表', '失败', 'Worker', '日志', '下载数据']) {
   assert.match(app, new RegExp(tab), `${tab} Locust tab must exist`);
 }
-for (const label of ['RPS', '失败/秒', '响应时间', '用户数', 'Master 日志', 'HTML 报告', '请求 CSV', '失败 CSV', '异常 CSV', '历史 CSV']) {
+for (const label of ['RPS', '失败/秒', '响应时间', '用户数', 'Master 日志', 'Locust 原生 HTML 报告', '平台 HTML 报告', '请求 CSV', '失败 CSV', '异常 CSV', '历史 CSV']) {
   assert.match(app, new RegExp(label), `${label} Locust WebUI detail label must exist`);
 }
 assert.doesNotMatch(app, /:href="artifact\.download_url"/, 'artifact downloads must use authenticated fetch instead of a bare browser link');

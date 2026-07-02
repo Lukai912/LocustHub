@@ -1,3 +1,5 @@
+import logging
+
 from app.core.database import Database
 from app.repositories.sqlite_repo import SQLiteRepository
 from app.services.artifacts import LocalArtifactRepository
@@ -170,7 +172,8 @@ class FakeReportFetcher:
         }
 
 
-def test_report_archiver_prefers_real_locust_reports(tmp_path):
+def test_report_archiver_prefers_real_locust_reports(tmp_path, caplog):
+    caplog.set_level(logging.DEBUG)
     db = Database(tmp_path / "locusthub.db")
     repo = SQLiteRepository(db)
     repo.init_schema()
@@ -198,7 +201,14 @@ def test_report_archiver_prefers_real_locust_reports(tmp_path):
 
     assert summary["report_status"] == "archived"
     artifacts = repo.list_table("artifact_objects")
-    html = next(item for item in artifacts if item["object_key"].endswith("report.html"))
-    assert "report.html" in html["object_key"]
+    html = next(item for item in artifacts if item["object_key"].endswith("locust-native/report.html"))
+    assert summary["html_artifact_id"] == html["id"]
     report_file = tmp_path / "artifacts" / html["object_key"]
     assert "real locust report" in report_file.read_text(encoding="utf-8")
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "locust_native_report_fetched run_id=run-report" in messages
+    assert "archive_report_html_selected run_id=run-report report_source=locust_native" in messages
+    assert "archive_artifact_saved run_id=run-report" in messages
+    assert "archive_report_inputs run_id=run-report snapshots=0 request_stats=0" in messages
+    assert "locust_native_report_payload run_id=run-report keys=" in messages
+    assert "archive_artifact_payload run_id=run-report" in messages

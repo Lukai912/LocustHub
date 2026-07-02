@@ -73,9 +73,11 @@ const navigation: Array<{ key: ViewKey; label: string; cn: string }> = [
   { key: 'ci', label: 'CI 基线', cn: '性能门禁' },
 ];
 const locustTabs: LocustTab[] = ['统计', '图表', '失败', 'Worker', '日志', '诊断', '下载数据'];
-const expectedReportArtifacts = ['HTML 报告', '请求 CSV', '失败 CSV', '异常 CSV', '历史 CSV', 'Master 日志'];
+const expectedReportArtifacts = ['Locust 原生 HTML 报告', '请求 CSV', '失败 CSV', '异常 CSV', '历史 CSV', 'Master 日志'];
 const artifactNameMap: Record<string, string> = {
   'HTML Report': 'HTML 报告',
+  'Locust Native HTML Report': 'Locust 原生 HTML 报告',
+  'Platform HTML Report': '平台 HTML 报告',
   'Requests CSV': '请求 CSV',
   'Failures CSV': '失败 CSV',
   'Exceptions CSV': '异常 CSV',
@@ -84,6 +86,8 @@ const artifactNameMap: Record<string, string> = {
 };
 const artifactFilenameMap: Record<string, string> = {
   html: 'report.html',
+  locust_native_html: 'locust-native-report.html',
+  platform_html: 'platform-report.html',
   requests_csv: 'requests.csv',
   failures_csv: 'failures.csv',
   exceptions_csv: 'exceptions.csv',

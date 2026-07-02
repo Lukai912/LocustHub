@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from urllib.parse import urljoin
 
 import httpx
+
+
+logger = logging.getLogger(__name__)
 
 
 class LocustMetricsSimulator:
@@ -149,33 +153,51 @@ class LocustMasterApiClient:
         self.timeout_seconds = timeout_seconds
 
     def get_stats(self) -> dict:
-        response = httpx.get(urljoin(self.base_url, "stats/requests"), timeout=self.timeout_seconds)
+        url = urljoin(self.base_url, "stats/requests")
+        logger.info("locust_api_fetch_start endpoint=stats url=%s timeout_seconds=%s", url, self.timeout_seconds)
+        response = httpx.get(url, timeout=self.timeout_seconds)
         response.raise_for_status()
+        logger.info("locust_api_fetch_complete endpoint=stats status_code=%s bytes=%s", response.status_code, len(response.content))
         return response.json()
 
     def get_report_html(self) -> str:
-        response = httpx.get(urljoin(self.base_url, "stats/report"), timeout=self.timeout_seconds)
+        url = urljoin(self.base_url, "stats/report")
+        logger.info("locust_api_fetch_start endpoint=report_html url=%s timeout_seconds=%s", url, self.timeout_seconds)
+        response = httpx.get(url, timeout=self.timeout_seconds)
         response.raise_for_status()
+        logger.info("locust_api_fetch_complete endpoint=report_html status_code=%s bytes=%s", response.status_code, len(response.content))
         return response.text
 
     def get_requests_csv(self) -> str:
-        response = httpx.get(urljoin(self.base_url, "stats/requests/csv"), timeout=self.timeout_seconds)
+        url = urljoin(self.base_url, "stats/requests/csv")
+        logger.info("locust_api_fetch_start endpoint=requests_csv url=%s timeout_seconds=%s", url, self.timeout_seconds)
+        response = httpx.get(url, timeout=self.timeout_seconds)
         response.raise_for_status()
+        logger.info("locust_api_fetch_complete endpoint=requests_csv status_code=%s bytes=%s", response.status_code, len(response.content))
         return response.text
 
     def get_failures_csv(self) -> str:
-        response = httpx.get(urljoin(self.base_url, "stats/failures/csv"), timeout=self.timeout_seconds)
+        url = urljoin(self.base_url, "stats/failures/csv")
+        logger.info("locust_api_fetch_start endpoint=failures_csv url=%s timeout_seconds=%s", url, self.timeout_seconds)
+        response = httpx.get(url, timeout=self.timeout_seconds)
         response.raise_for_status()
+        logger.info("locust_api_fetch_complete endpoint=failures_csv status_code=%s bytes=%s", response.status_code, len(response.content))
         return response.text
 
     def get_exceptions_csv(self) -> str:
-        response = httpx.get(urljoin(self.base_url, "exceptions/csv"), timeout=self.timeout_seconds)
+        url = urljoin(self.base_url, "exceptions/csv")
+        logger.info("locust_api_fetch_start endpoint=exceptions_csv url=%s timeout_seconds=%s", url, self.timeout_seconds)
+        response = httpx.get(url, timeout=self.timeout_seconds)
         response.raise_for_status()
+        logger.info("locust_api_fetch_complete endpoint=exceptions_csv status_code=%s bytes=%s", response.status_code, len(response.content))
         return response.text
 
     def get_history_csv(self) -> str:
-        response = httpx.get(urljoin(self.base_url, "stats/requests_full_history/csv"), timeout=self.timeout_seconds)
+        url = urljoin(self.base_url, "stats/requests_full_history/csv")
+        logger.info("locust_api_fetch_start endpoint=history_csv url=%s timeout_seconds=%s", url, self.timeout_seconds)
+        response = httpx.get(url, timeout=self.timeout_seconds)
         response.raise_for_status()
+        logger.info("locust_api_fetch_complete endpoint=history_csv status_code=%s bytes=%s", response.status_code, len(response.content))
         return response.text
 
 
@@ -188,6 +210,7 @@ class LocustReportFetcher:
         # The namespace is read from the stored lane so tenant and run namespace
         # strategies both resolve to the correct in-cluster master Service.
         base_url = self.base_url_template.format(run_id=run["id"], tenant_id=run["tenant_id"], project_id=run["project_id"], namespace=namespace)
+        logger.info("locust_native_report_fetch_start run_id=%s namespace=%s base_url=%s", run["id"], namespace, base_url)
         client = LocustMasterApiClient(base_url, self.timeout_seconds)
         reports = {
             "html": client.get_report_html(),
@@ -197,11 +220,19 @@ class LocustReportFetcher:
         }
         try:
             reports["exceptions_csv"] = client.get_exceptions_csv()
-        except Exception:
+        except Exception as exc:
             # Some Locust versions or deployments omit the exceptions export;
             # keep the rest of the native report archive intact and let the
             # archiver generate an empty exceptions CSV.
+            logger.warning("locust_native_report_exceptions_csv_missing run_id=%s namespace=%s error=%s", run["id"], namespace, exc, exc_info=True)
             reports["exceptions_csv"] = ""
+        logger.info("locust_native_report_fetch_complete run_id=%s namespace=%s keys=%s", run["id"], namespace, sorted(reports.keys()))
+        logger.debug(
+            "locust_native_report_fetch_payload run_id=%s namespace=%s sizes=%s",
+            run["id"],
+            namespace,
+            {key: len(value or "") for key, value in reports.items()},
+        )
         return reports
 
 
@@ -215,6 +246,14 @@ class LocustApiMetricsCollector(LocustMetricsSimulator):
         # strategies resolve to the actual in-cluster Locust master Service.
         namespace = run.get("lane_namespace") or f"lt-{run['tenant_id']}"
         base_url = self.base_url_template.format(run_id=run["id"], tenant_id=run["tenant_id"], project_id=run["project_id"], namespace=namespace)
+        logger.debug(
+            "locust_metrics_collect_context run_id=%s tenant_id=%s namespace=%s base_url=%s sequence=%s",
+            run["id"],
+            run["tenant_id"],
+            namespace,
+            base_url,
+            sequence,
+        )
         payload = LocustMasterApiClient(base_url, self.timeout_seconds).get_stats()
         return self.from_locust_payload(run, payload)
 
@@ -262,6 +301,16 @@ class LocustApiMetricsCollector(LocustMetricsSimulator):
             }
             for worker in payload.get("workers", [])
         ]
+        logger.debug(
+            "locust_metrics_payload_converted run_id=%s source_stats=%s endpoint_stats=%s errors=%s workers=%s total_rps=%s fail_ratio=%s",
+            run["id"],
+            len(payload.get("stats", [])),
+            len(stats),
+            len(errors),
+            len(workers),
+            snapshot["total_rps"],
+            snapshot["fail_ratio"],
+        )
         return snapshot, stats, errors, workers
 
     def _stat_from_locust(self, row: dict) -> dict:
